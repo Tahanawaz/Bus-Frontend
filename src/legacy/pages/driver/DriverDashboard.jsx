@@ -14,14 +14,14 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
-import { styled, useTheme } from '@mui/material/styles';
+import { styled } from '@mui/material/styles';
 
 // --- Custom Styled Connector ---
 const ColorlibConnector = styled(StepConnector)(({ theme }) => ({
   [`&.${stepConnectorClasses.alternativeLabel}`]: { top: 22 },
   [`&.${stepConnectorClasses.active}`]: { [`& .${stepConnectorClasses.line}`]: { backgroundColor: '#3b82f6' } },
   [`&.${stepConnectorClasses.completed}`]: { [`& .${stepConnectorClasses.line}`]: { backgroundColor: '#3b82f6' } },
-  [`& .${stepConnectorClasses.line}`]: { height: 3, border: 0, backgroundColor: theme.palette.divider, borderRadius: 1 },
+  [`& .${stepConnectorClasses.line}`]: { height: 3, border: 0, backgroundColor: '#1e1e2e', borderRadius: 1 },
 }));
 
 const busIcon = new L.Icon({
@@ -38,7 +38,6 @@ const RecenterMap = ({ coords }) => {
 };
 
 const DriverDashboard = () => {
-  const theme = useTheme();
   const [bus, setBus] = useState(null);
   const [route, setRoute] = useState(null);
   const [status, setStatus] = useState('On time');
@@ -103,7 +102,7 @@ const DriverDashboard = () => {
 
   const startTracking = () => {
     setIsSharing(true);
-    toast.success("Location sharing started.");
+    toast.success("Satellite Link Established. Broadcasting Live.");
     watchId.current = navigator.geolocation.watchPosition(async (pos) => {
       const { latitude, longitude } = pos.coords;
       const newPos = [latitude, longitude];
@@ -167,7 +166,7 @@ const DriverDashboard = () => {
     setStopCountdown(0);
     const nextIdx = activeStopIndex + 1;
     const nextStopName = route.parsedStops[nextIdx];
-
+    
     // Crucially: Don't update the stop name in DB yet, only the status
     // This way student panel knows we are MOVING but still lists last stop
     try {
@@ -201,21 +200,21 @@ const DriverDashboard = () => {
 
   const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  if (loading) return <Box className="h-screen flex items-center justify-center bg-slate-50"><CircularProgress /></Box>;
+  if (loading) return <Box className="h-screen flex items-center justify-center bg-[#0a0a0f]"><CircularProgress /></Box>;
 
   return (
-    <Box className="pb-10 relative bg-slate-50">
+    <Box className="pb-10 relative bg-[#0a0a0f]">
       <AnimatePresence>
         {arrivedTimer && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[2000] bg-white/95 backdrop-blur-2xl flex items-center justify-center">
-            <Box className="text-center p-16 bg-white border border-blue-500/30 rounded-3xl shadow-[0_0_100px_rgba(59,130,246,0.2)] max-w-lg">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[2000] bg-black/95 backdrop-blur-2xl flex items-center justify-center">
+            <Box className="text-center p-16 bg-[#11111a] border border-blue-500/30 rounded-[60px] shadow-[0_0_100px_rgba(59,130,246,0.2)] max-w-lg">
               <Flag size={80} className="text-blue-500 mx-auto mb-8 animate-bounce" />
-              <Typography variant="h2" className="text-slate-900 font-bold mb-4 tracking-tighter">Journey complete</Typography>
-              <Typography className="text-slate-500 mb-10 text-xl font-bold">Route completed. Your trip has reached its final stop.</Typography>
-              <Box className="p-8 bg-blue-500/5 rounded-2xl border border-blue-500/10 mb-10">
-                <Typography variant="h1" className="text-blue-500 font-mono font-bold">{formatTime(finalCountdown)}</Typography>
+              <Typography variant="h2" className="text-white font-black mb-4 tracking-tighter">FINISH LINE</Typography>
+              <Typography className="text-gray-400 mb-10 text-xl font-bold">Route completed. System cooldown active.</Typography>
+              <Box className="p-8 bg-blue-500/5 rounded-[40px] border border-blue-500/10 mb-10">
+                <Typography variant="h1" className="text-blue-500 font-mono font-black">{formatTime(finalCountdown)}</Typography>
               </Box>
-              <Button fullWidth variant="contained" onClick={handleResetTrip} className="bg-blue-600 py-5 rounded-[24px] font-bold text-2xl shadow-sm shadow-blue-900/40">Start a new journey</Button>
+              <Button fullWidth variant="contained" onClick={handleResetTrip} className="bg-blue-600 py-5 rounded-[24px] font-black text-2xl shadow-xl shadow-blue-900/40">RESTART SYSTEM</Button>
             </Box>
           </motion.div>
         )}
@@ -223,19 +222,19 @@ const DriverDashboard = () => {
 
       <Box className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
         <Box>
-          <Typography variant="h3" className="text-slate-900 font-bold tracking-tighter flex items-center gap-4">
-            My journey <Activity className="text-blue-500 animate-pulse" />
+          <Typography variant="h3" className="text-white font-black tracking-tighter flex items-center gap-4">
+            Command Center <Activity className="text-blue-500 animate-pulse" />
           </Typography>
-          <Typography variant="body1" className="text-slate-500 font-bold uppercase tracking-[0.3em] mt-1">{bus?.name} | {bus?.number_plate}</Typography>
+          <Typography variant="body1" className="text-gray-500 font-bold uppercase tracking-[0.3em] mt-1">{bus?.name} | {bus?.number_plate}</Typography>
         </Box>
         <Box className="flex gap-3 w-full md:w-auto">
-          <Button variant="outlined" onClick={simulateMovement} className="border-blue-500 text-blue-500 rounded-2xl px-6 py-4 font-bold">SIMULATE</Button>
+          <Button variant="outlined" onClick={simulateMovement} className="border-blue-500 text-blue-500 rounded-2xl px-6 py-4 font-black">SIMULATE</Button>
           {!isSharing ? (
-            <Button variant="contained" onClick={startTracking} className="bg-blue-600 hover:bg-blue-700 rounded-2xl px-12 py-4 font-bold shadow-sm shadow-blue-900/40">START BROADCAST</Button>
+            <Button variant="contained" onClick={startTracking} className="bg-blue-600 hover:bg-blue-700 rounded-2xl px-12 py-4 font-black shadow-xl shadow-blue-900/40">START BROADCAST</Button>
           ) : (
             <Box className="bg-green-500/10 border border-green-500/20 px-6 py-4 rounded-2xl flex items-center gap-3">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-              <Typography className="text-green-500 font-bold tracking-widest text-sm">TRANSMITTING LIVE</Typography>
+              <Typography className="text-green-500 font-black tracking-widest text-sm">TRANSMITTING LIVE</Typography>
             </Box>
           )}
         </Box>
@@ -243,44 +242,44 @@ const DriverDashboard = () => {
 
       <Grid container spacing={4}>
         <Grid size={{ xs: 12, lg: 4 }}>
-          <Card className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 sticky top-4">
+          <Card className="bg-[#11111a] border border-white/5 rounded-[40px] shadow-2xl p-8 sticky top-4">
             <Box className="mb-10 text-center">
-              <Typography variant="caption" className="text-slate-500 font-bold uppercase tracking-[0.2em] block mb-2">Current Objective</Typography>
-              <Typography variant="h4" className="text-slate-900 font-bold">{isAtStop ? 'HOLDING AT STOP' : `MOVING TO ${route?.parsedStops[activeStopIndex]}`}</Typography>
+              <Typography variant="caption" className="text-gray-500 font-black uppercase tracking-[0.2em] block mb-2">Current Objective</Typography>
+              <Typography variant="h4" className="text-white font-black">{isAtStop ? 'HOLDING AT STOP' : `MOVING TO ${route?.parsedStops[activeStopIndex]}`}</Typography>
             </Box>
 
             <Stepper orientation="vertical" activeStep={activeStopIndex} connector={<ColorlibConnector />}>
               {route?.parsedStops.map((stop, index) => (
                 <Step key={stop} completed={index < activeStopIndex}>
-                  <StepLabel StepIconProps={{ sx: { color: index < activeStopIndex ? '#3b82f6' : index === activeStopIndex ? '#3b82f6' : theme.palette.text.disabled } }}>
+                  <StepLabel StepIconProps={{ sx: { color: index < activeStopIndex ? '#3b82f6' : index === activeStopIndex ? '#3b82f6' : '#1e1e2e' } }}>
                     <Box sx={{ opacity: index < activeStopIndex ? 0.3 : 1, filter: index < activeStopIndex ? 'grayscale(1)' : 'none' }}>
-                      <Typography className="text-slate-900 font-bold text-lg">{stop}</Typography>
-                      <Typography variant="caption" className="text-blue-500 font-bold">{route.parsedEtas[index]}</Typography>
+                      <Typography className="text-white font-black text-lg">{stop}</Typography>
+                      <Typography variant="caption" className="text-blue-500 font-black">{route.parsedEtas[index]}</Typography>
                     </Box>
                   </StepLabel>
                 </Step>
               ))}
             </Stepper>
 
-            <Divider className="border-slate-200 my-10" />
+            <Divider className="border-white/5 my-10" />
 
             <Box>
               {!isAtStop ? (
                 <>
-                  <Button fullWidth variant="contained" onClick={handleArriveAtStop} className="bg-orange-600 hover:bg-orange-700 rounded-[24px] py-6 font-bold text-xl shadow-sm shadow-orange-900/40">
+                  <Button fullWidth variant="contained" onClick={handleArriveAtStop} className="bg-orange-600 hover:bg-orange-700 rounded-[24px] py-6 font-black text-xl shadow-xl shadow-orange-900/40">
                     MARK ARRIVAL
                   </Button>
                   <Box className="mt-4">
-                    <Button fullWidth variant="outlined" onClick={handleTrafficDelay} className="border-red-500 text-red-500 hover:bg-red-500/10 rounded-[24px] py-4 font-bold text-lg">
+                    <Button fullWidth variant="outlined" onClick={handleTrafficDelay} className="border-red-500 text-red-500 hover:bg-red-500/10 rounded-[24px] py-4 font-black text-lg">
                       REPORT TRAFFIC DELAY
                     </Button>
                   </Box>
                 </>
               ) : (
-                <Box className="p-8 bg-blue-600/5 rounded-2xl border border-blue-500/20 text-center">
-                  <Typography className="text-blue-500 font-bold uppercase tracking-widest mb-2">Break Remaining</Typography>
-                  <Typography variant="h2" className="text-slate-900 font-mono font-bold mb-8">{formatTime(stopCountdown)}</Typography>
-                  <Button fullWidth variant="contained" onClick={handleLeaveStop} className="bg-blue-600 hover:bg-blue-700 rounded-[24px] py-5 font-bold text-xl">
+                <Box className="p-8 bg-blue-600/5 rounded-[32px] border border-blue-500/20 text-center">
+                  <Typography className="text-blue-500 font-black uppercase tracking-widest mb-2">Break Remaining</Typography>
+                  <Typography variant="h2" className="text-white font-mono font-black mb-8">{formatTime(stopCountdown)}</Typography>
+                  <Button fullWidth variant="contained" onClick={handleLeaveStop} className="bg-blue-600 hover:bg-blue-700 rounded-[24px] py-5 font-black text-xl">
                     PROCEED <ChevronRight size={24} className="ml-2" />
                   </Button>
                 </Box>
@@ -290,9 +289,9 @@ const DriverDashboard = () => {
         </Grid>
 
         <Grid size={{ xs: 12, lg: 8 }}>
-          <Card className="bg-white border border-slate-200 rounded-2xl overflow-hidden relative shadow-sm h-[600px] border-t-blue-500/20">
+          <Card className="bg-[#11111a] border border-white/5 rounded-[56px] overflow-hidden relative shadow-2xl h-[800px] border-t-blue-500/20">
             <MapContainer center={currentLocation} zoom={16} style={{ height: '100%', width: '100%' }}>
-              <TileLayer url={`https://{s}.basemaps.cartocdn.com/${theme.palette.mode === 'dark' ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`} attribution='&copy; CARTO' />
+              <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution='&copy; CARTO' />
               <RecenterMap coords={currentLocation} />
               <Polyline positions={history} color="#3b82f6" weight={5} opacity={0.6} />
               <Marker position={currentLocation} icon={busIcon}>
@@ -300,18 +299,18 @@ const DriverDashboard = () => {
               </Marker>
             </MapContainer>
 
-            <Box className="absolute top-5 right-5 z-[1000]">
-              <Paper className="bg-white/80 backdrop-blur-xl border border-slate-200 p-4 rounded-3xl">
+            <Box className="absolute top-10 right-10 z-[1000]">
+              <Paper className="bg-[#11111a]/80 backdrop-blur-xl border border-white/5 p-4 rounded-3xl">
                 <Box className="flex items-center gap-3">
                   <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse" />
-                  <Typography className="text-slate-900 font-bold text-sm">GPS LOCK: 31.52°N, 74.35°E</Typography>
+                  <Typography className="text-white font-bold text-sm">GPS LOCK: 31.52°N, 74.35°E</Typography>
                 </Box>
               </Paper>
             </Box>
 
-            <Box className="absolute bottom-5 left-5 right-5 z-[1000]">
-              <Button fullWidth variant="contained" className="bg-white text-slate-800 py-3 rounded-xl font-semibold text-sm hover:bg-gray-100 shadow-sm" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${currentLocation[0]},${currentLocation[1]}`, '_blank')}>
-                <Navigation size={22} className="mr-3" /> Open in Google Maps
+            <Box className="absolute bottom-12 left-12 right-12 z-[1000]">
+              <Button fullWidth variant="contained" className="bg-white text-black py-6 rounded-[28px] font-black text-lg hover:bg-gray-100 shadow-2xl" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${currentLocation[0]},${currentLocation[1]}`, '_blank')}>
+                <Navigation size={22} className="mr-3" /> LAUNCH GOOGLE MAPS CO-PILOT
               </Button>
             </Box>
           </Card>
