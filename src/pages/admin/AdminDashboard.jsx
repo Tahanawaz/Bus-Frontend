@@ -1,7 +1,8 @@
+import DownloadPdfButton from '../../components/DownloadPdfButton';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import io from 'socket.io-client';
+import { connectSocket } from '../../api';
 import { Bus, Users, GraduationCap, Route, ArrowUpRight, Plus, MapPin } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -20,7 +21,7 @@ export default function AdminDashboard() {
       } catch { if (active) setError('Unable to load your fleet. Please refresh to try again.'); }
     };
     load();
-    const socket = io('http://localhost:5001');
+    const socket = connectSocket();
     socket.on('connect', load);
     socket.on('statusUpdate', load);
     socket.on('busUpdated', load);
@@ -33,7 +34,7 @@ export default function AdminDashboard() {
     { title: 'Students', value: data?.totalStudents, caption: 'Connected to your campus', icon: GraduationCap, color: 'violet', category: 'COMMUNITY', unit: 'students', path: '/admin/students', action: 'View students' }
   ];
   return <div>
-    <div className="overview-heading"><div><span className="overview-kicker">YOUR CAMPUS AT A GLANCE</span><h1>A clearer view. A better journey.</h1><p>Keep your fleet, people, and campus routes moving together.</p></div><Link to="/admin/buses" className="secondary-button"><Plus size={16} /> Manage fleet</Link></div>
+    <div className="overview-heading"><div><span className="overview-kicker">YOUR CAMPUS AT A GLANCE</span><h1>A clearer view. A better journey.</h1><p>Keep your fleet, people, and campus routes moving together.</p></div><div className="form-actions"><DownloadPdfButton type="all">Download all data</DownloadPdfButton><Link to="/admin/buses" className="secondary-button"><Plus size={16} /> Manage fleet</Link></div></div>
     {error && <div className="error-notice" role="alert">{error}</div>}
     <div className="overview-stats" aria-label="Campus statistics">
       {cards.map(({ title, value, caption, icon: Icon, color, category, unit, path, action }) => (

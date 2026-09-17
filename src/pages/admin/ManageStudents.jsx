@@ -1,272 +1,122 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-import {
-  Box, Typography, Button, TextField, Grid, Card, CardContent,
-  InputAdornment, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Avatar, IconButton, Chip, CircularProgress
-} from '@mui/material';
-import { UserPlus, Mail, Lock, User, ShieldCheck, Trash2, Search, Pencil, X, GraduationCap } from 'lucide-react';
+import DownloadPdfButton from '../../components/DownloadPdfButton';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Dialog, DialogTitle, DialogContent } from '@mui/material';
+import { Plus, Search, Download, Pencil, CreditCard, Shield, Trash2, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { motion } from 'framer-motion';
+import { api, downloadReport } from '../../api';
 
-const ManageStudents = () => {
-  const [students, setStudents] = useState([]);
-  const [studentName, setStudentName] = useState('');
-  const [studentEmail, setStudentEmail] = useState('');
-  const [studentPassword, setStudentPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-
-  const token = localStorage.getItem('token');
-
-  const fetchStudents = async () => {
+const today = () => new Date().toISOString().slice(0,10);
+const endAfter = (start,days) => { const date=new Date(start+'T00:00:00Z'); date.setUTCDate(date.getUTCDate()+Number(days)-1); return Number.isFinite(date.getTime())?date.toISOString().slice(0,10):''; };
+const emptyForm = () => ({name:'',email:'',password:'',institute_id:localStorage.getItem('instituteScope')||''});
+export default function ManageStudents() {
+  const user=JSON.parse(localStorage.getItem('user'));
+  const superadmin=user.role==='superadmin';
+  const [students,setStudents]=useState([]);
+  const [institutes,setInstitutes]=useState([]);
+  const [search,setSearch]=useState('');
+  const [institute,setInstitute]=useState(superadmin?(localStorage.getItem('instituteScope')||''):String(user.institute_id));
+  const [status,setStatus]=useState('');
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  const [busy,setBusy]=useState(false);
+  const [editor,setEditor]=useState(null);
+  const [form,setForm]=useState(emptyForm);
+  const [access,setAccess]=useState(null);
+  const [payment,setPayment]=useState(null);
+  const [history,setHistory]=useState([]);
+  const [historyError,setHistoryError]=useState('');
+  const loadVersion=useRef(null);
+  const load=useCallback(async()=>{
+    const version=Symbol();
+    loadVersion.current=version;
     try {
-      const res = await axios.get('http://localhost:5001/api/auth/students', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setStudents(res.data);
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to load students list');
-    } finally {
-      setFetching(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchStudents();
-  }, []);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+      const [s,i]=await Promise.all([api.get('/auth/students',{params:{institute_id:institute||'all'}}),api.get('/institutes')]);
+      if(version!==loadVersion.current)return;
+      setStudents(s.data);setInstitutes(i.data);setError('');
+    } catch(err) {if(version===loadVersion.current)setError(err.response?.data?.error||'Unable to load students.');}
+    finally {if(version===loadVersion.current)setLoading(false);}
+  },[institute]);
+  // Fetch initial server data; state updates happen after the asynchronous request.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(()=>{load();return()=>{loadVersion.current=null;};},[load]);
+  const filtered=students.filter(s=>(!status||s.status===status)&&(s.name+' '+s.email).toLowerCase().includes(search.toLowerCase()));
+  const change=e=>setForm({...form,[e.target.name]:e.target.value});
+  const save=async e=>{
+    e.preventDefault();setBusy(true);
     try {
-      if (isEditing) {
-        await axios.put(`http://localhost:5001/api/auth/students/${editingId}`,
-          { name: studentName, email: studentEmail, password: studentPassword || undefined },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        toast.success('Student details updated!');
-      } else {
-        await axios.post('http://localhost:5001/api/auth/signup',
-          { name: studentName, email: studentEmail, password: studentPassword, role: 'student' }
-        );
-        toast.success('Student account created successfully!');
-      }
-      resetForm();
-      fetchStudents(); // Refresh list
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Error saving student');
-    } finally {
-      setLoading(false);
-    }
+      if(editor.id)await api.put('/auth/students/'+editor.id,form);else await api.post('/auth/students',{...form,institute_id:superadmin?form.institute_id:user.institute_id});
+      toast.success(editor.id?'Student updated.':'Student created. Record a payment to activate access.');setEditor(null);await load();
+    }catch(err){toast.error(err.response?.data?.error||'Unable to save student.');}finally{setBusy(false);}
   };
-
-  const handleEditClick = (student) => {
-    setIsEditing(true);
-    setEditingId(student.id);
-    setStudentName(student.name);
-    setStudentEmail(student.email);
-    setStudentPassword(''); // Don't show password, only set if changing
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const openPayment=async student=>{
+    const start=today();
+    setPayment({student,amount:'',currency:'PKR',reference:'',access_start:start,access_end:endAfter(start,30),days:'30'});
+    setHistory([]);setHistoryError('');
+    try{setHistory((await api.get('/auth/students/'+student.id+'/payments')).data);}catch{setHistoryError('Payment history is unavailable.');}
   };
-
-  const resetForm = () => {
-    setIsEditing(false);
-    setEditingId(null);
-    setStudentName('');
-    setStudentEmail('');
-    setStudentPassword('');
+  const savePayment=async e=>{
+    e.preventDefault();setBusy(true);
+    try{
+      await api.post('/auth/students/'+payment.student.id+'/payments',{amount:payment.amount,currency:payment.currency,reference:payment.reference,access_start:payment.access_start,access_end:payment.access_end});
+      toast.success('Payment recorded and duration updated.');setPayment(null);await load();
+    }catch(err){toast.error(err.response?.data?.error||'Unable to record payment.');}finally{setBusy(false);}
   };
-
-  const handleDeleteStudent = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this student account?')) return;
-    try {
-      await axios.delete(`http://localhost:5001/api/auth/students/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      toast.success('Student removed');
-      fetchStudents();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Error deleting student');
-    }
+  const saveAccess=async e=>{
+    e.preventDefault();setBusy(true);
+    try{await api.put('/auth/students/'+access.student.id+'/access',{status:access.status,access_start:access.access_start,access_end:access.access_end});toast.success('Access updated.');setAccess(null);await load();}
+    catch(err){toast.error(err.response?.data?.error||'Unable to update access.');}finally{setBusy(false);}
   };
-
-  const filteredStudents = students.filter(s =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  return (
-    <Box>
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-        <Box className="flex justify-between items-center mb-8">
-          <Box>
-            <Typography variant="h4" className="text-slate-900 font-bold tracking-tight">Student Directory</Typography>
-            <Typography variant="body2" className="text-slate-500 mt-1">Manage student accounts and access</Typography>
-          </Box>
-        </Box>
-      </motion.div>
-
-      <Grid container spacing={4}>
-        {/* Form */}
-        <Grid size={{ xs: 12, lg: 4 }}>
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
-            <Card className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm sticky top-24">
-              <Box className="h-2 bg-purple-600" />
-              <CardContent className="p-8">
-                <Box className="flex items-center gap-4 mb-8">
-                  <Box className="p-3 bg-purple-500/10 rounded-2xl text-purple-500">
-                    <UserPlus size={28} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" className="text-slate-900 font-bold">{isEditing ? 'Update Student' : 'Add Student'}</Typography>
-                    <Typography variant="caption" className="text-slate-500">{isEditing ? 'Modify student profile' : 'Create a new student record'}</Typography>
-                  </Box>
-                </Box>
-
-                <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-                  <TextField
-                    label="Full Name"
-                    fullWidth
-                    value={studentName}
-                    onChange={(e)=>setStudentName(e.target.value)}
-                    required
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start"><User size={18} className="text-slate-500" /></InputAdornment>,
-                    }}
-                  />
-                  <TextField
-                    label="Email Address"
-                    type="email"
-                    fullWidth
-                    value={studentEmail}
-                    onChange={(e)=>setStudentEmail(e.target.value)}
-                    required
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start"><Mail size={18} className="text-slate-500" /></InputAdornment>,
-                    }}
-                  />
-                  <TextField
-                    label={isEditing ? "New Password (Optional)" : "Password"}
-                    type="password"
-                    fullWidth
-                    value={studentPassword}
-                    onChange={(e)=>setStudentPassword(e.target.value)}
-                    required={!isEditing}
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start"><Lock size={18} className="text-slate-500" /></InputAdornment>,
-                    }}
-                  />
-                  <Box className="flex gap-3 mt-2">
-                    <Button
-                      type="submit"
-                      disabled={loading}
-                      variant="contained"
-                      className="bg-purple-600 hover:bg-purple-700 py-4 flex-1 rounded-xl font-bold shadow-lg shadow-purple-900/20"
-                    >
-                      {loading ? 'Processing...' : (isEditing ? 'Update Student' : 'Register Student')}
-                    </Button>
-                    {isEditing && (
-                      <IconButton onClick={resetForm} className="bg-slate-50 hover:bg-blue-50 text-slate-500 rounded-xl px-4">
-                        <X size={20} />
-                      </IconButton>
-                    )}
-                  </Box>
-                </form>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </Grid>
-
-        {/* List */}
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
-            <Card className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-              <CardContent className="p-0">
-                <Box className="p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
-                  <Box className="flex items-center gap-3">
-                    <Box className="p-2 bg-purple-500/10 rounded-xl text-purple-500">
-                      <GraduationCap size={22} />
-                    </Box>
-                    <Typography variant="h6" className="text-slate-900 font-bold">Registered Students</Typography>
-                  </Box>
-                  <TextField
-                    size="small"
-                    placeholder="Search students..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '10px', width: {md: '300px'} }, '& label': { color: 'text.secondary' } }}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start"><Search size={16} className="text-slate-500" /></InputAdornment>,
-                    }}
-                  />
-                </Box>
-
-                {fetching ? (
-                  <Box className="p-20 flex justify-center"><CircularProgress /></Box>
-                ) : (
-                  <TableContainer component={Box} className="max-h-[600px] overflow-auto">
-                    <Table stickyHeader>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell className="bg-white text-slate-500 border-slate-200 font-bold">Student</TableCell>
-                          <TableCell className="bg-white text-slate-500 border-slate-200 font-bold">Email</TableCell>
-                          <TableCell className="bg-white text-slate-500 border-slate-200 font-bold">Role</TableCell>
-                          <TableCell className="bg-white text-slate-500 border-slate-200 font-bold align-right text-right">Actions</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {filteredStudents.map((student) => (
-                          <TableRow key={student.id} className="hover:bg-slate-50 transition-colors group">
-                            <TableCell className="border-slate-200">
-                              <Box className="flex items-center gap-3">
-                                <Avatar sx={{ width: 36, height: 36, bgcolor: '#8b5cf6', fontWeight: 'bold' }}>
-                                  {student.name.charAt(0)}
-                                </Avatar>
-                                <Typography className="text-slate-900 font-medium">{student.name}</Typography>
-                              </Box>
-                            </TableCell>
-                            <TableCell className="border-slate-200 text-slate-500">{student.email}</TableCell>
-                            <TableCell className="border-slate-200">
-                              <Chip label="STUDENT" size="small" className="bg-purple-500/10 text-purple-500 font-bold text-[10px]" />
-                            </TableCell>
-                            <TableCell className="border-slate-200 text-right">
-                              <Box className="flex justify-end gap-1">
-                                <IconButton size="small" onClick={() => handleEditClick(student)} className="text-slate-500 hover:text-purple-500 transition-colors opacity-100">
-                                  <Pencil size={18} />
-                                </IconButton>
-                                <IconButton size="small" onClick={() => handleDeleteStudent(student.id)} className="text-slate-500 hover:text-red-500 transition-colors opacity-100">
-                                  <Trash2 size={18} />
-                                </IconButton>
-                              </Box>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {filteredStudents.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={4} className="text-center py-20 border-none text-slate-500 italic">
-                              No students found matching your search.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        </Grid>
-      </Grid>
-    </Box>
-  );
-};
-
-export default ManageStudents;
+  const remove=async student=>{
+    if(!window.confirm('Delete '+student.name+'? Payment records will be retained.'))return;
+    setBusy(true);
+    try{await api.delete('/auth/students/'+student.id);await load();toast.success('Student deleted.');}
+    catch(err){toast.error(err.response?.data?.error||'Unable to delete student.');}finally{setBusy(false);}
+  };
+  const exportStudents=async()=>{
+    setBusy(true);
+    try{await downloadReport('students',{institute_id:institute||'all',search,status});}
+    catch{toast.error('Unable to download PDF.');}finally{setBusy(false);}
+  };
+  return <div className="management-page">
+    <header className="management-heading"><div><span className="eyebrow">STUDENT ACCESS & MEMBERSHIP</span><h1>Student management</h1><p>Manage institutes, payment records, and time-limited access from one place.</p></div><div className="form-actions"><button className="secondary-button" disabled={busy} onClick={exportStudents}><Download size={16}/>Download PDF</button><DownloadPdfButton type="payments" params={{ institute_id: institute || 'all' }}>Payments PDF</DownloadPdfButton><button className="primary-button" onClick={()=>{setForm({...emptyForm(),institute_id:institute});setEditor({});}}><Plus size={17}/>Add student</button></div></header>
+    <div className="student-summary"><span><strong>{students.length}</strong> Students</span><span><strong>{students.filter(s=>s.status==='active').length}</strong> Active</span><span><strong>{students.filter(s=>s.status==='suspended').length}</strong> Suspended</span></div>
+    <section className="management-panel">
+      <div className="management-filters"><label className="search-filter"><span><Search size={14}/>Search students</span><input placeholder="Name or email" value={search} onChange={e=>setSearch(e.target.value)}/></label>
+        {superadmin&&<label>Institute<select value={institute} onChange={e=>setInstitute(e.target.value)}><option value="">All institutes</option>{institutes.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</select></label>}
+        <label>Status<select value={status} onChange={e=>setStatus(e.target.value)}><option value="">All statuses</option><option value="active">Active</option><option value="suspended">Suspended</option></select></label>
+        <button className="secondary-button" onClick={()=>{setSearch('');setStatus('');if(superadmin)setInstitute('');}}><X size={15}/>Clear filters</button>
+      </div>
+      {error&&<div className="error-notice" role="alert">{error}<button className="text-link" onClick={load}>Retry</button></div>}
+      <div className="management-table-wrap"><table><thead><tr><th>Student</th><th>Institute</th><th>Access period</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+        {filtered.map(student=><tr key={student.id}><td><strong>{student.name}</strong><small>{student.email}</small></td><td>{student.institute_name}</td><td><span>{student.access_start||'Not set'} to {student.access_end||'Not set'}</span><small>{student.access_end?'End date inclusive (UTC)':'Set access dates or record a payment'}</small></td><td><span className={'access-badge '+student.status}>{student.status}</span>{student.access_message&&<small className="access-reason">{student.access_message}</small>}</td><td><div className="row-actions">
+          <button title="Edit student" aria-label={'Edit '+student.name} disabled={busy} onClick={()=>{setForm({name:student.name,email:student.email,password:'',institute_id:student.institute_id});setEditor(student);}}><Pencil size={16}/></button>
+          <button title="Payment and duration" aria-label={'Payment and duration for '+student.name} disabled={busy} onClick={()=>openPayment(student)}><CreditCard size={16}/></button>
+          <button title="Activate or suspend" aria-label={'Manage access for '+student.name} disabled={busy} onClick={()=>setAccess({student,status:student.status,access_start:student.access_start||today(),access_end:student.access_end||endAfter(today(),30)})}><Shield size={16}/></button>
+          <button title="Delete student" aria-label={'Delete '+student.name} disabled={busy} onClick={()=>remove(student)}><Trash2 size={16}/></button>
+        </div></td></tr>)}
+      </tbody></table>{!filtered.length&&<p className="empty-state">{loading?'Loading students...':'No students match these filters.'}</p>}</div>
+      <p className="table-note">{filtered.length} of {students.length} students shown. PDF export uses these filters.</p>
+    </section>
+    <Dialog open={!!editor} onClose={()=>!busy&&setEditor(null)} fullWidth maxWidth="sm"><DialogTitle>{editor?.id?'Edit student':'Add student'}</DialogTitle><DialogContent><form className="management-form dialog-form" onSubmit={save}>
+      <label>Full name<input name="name" required value={form.name} onChange={change}/></label><label>Email<input name="email" type="email" required value={form.email} onChange={change}/></label>
+      <label>{editor?.id?'New password (leave blank to keep)':'Initial password'}<input name="password" type="password" autoComplete="new-password" minLength={6} required={!editor?.id} value={form.password} onChange={change}/></label>
+      {superadmin&&<label>Institute<select name="institute_id" required disabled={!!editor?.id} value={form.institute_id} onChange={change}><option value="">Select institute</option>{institutes.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</select></label>}
+      <div className="form-actions"><button className="primary-button" disabled={busy}>Save student</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>setEditor(null)}>Cancel</button></div>
+    </form></DialogContent></Dialog>
+    <Dialog open={!!payment} onClose={()=>!busy&&setPayment(null)} fullWidth maxWidth="sm"><DialogTitle>Payment & duration - {payment?.student.name}</DialogTitle><DialogContent>{payment&&<form className="management-form dialog-form" onSubmit={savePayment}>
+      <div className="form-grid"><label>Amount received<input required type="number" min="0.01" step="0.01" value={payment.amount} onChange={e=>setPayment({...payment,amount:e.target.value})}/></label><label>Currency<input required maxLength={3} pattern="[A-Za-z]{3}" value={payment.currency} onChange={e=>setPayment({...payment,currency:e.target.value.toUpperCase()})}/></label></div>
+      <label>Duration<select value={payment.days} onChange={e=>setPayment({...payment,days:e.target.value,...(e.target.value?{access_end:endAfter(payment.access_start,e.target.value)}:{})})}><option value="30">30 days</option><option value="90">90 days</option><option value="365">365 days</option><option value="">Custom dates</option></select></label>
+      <div className="form-grid"><label>Start date<input required type="date" value={payment.access_start} onChange={e=>setPayment({...payment,access_start:e.target.value,...(payment.days?{access_end:endAfter(e.target.value,payment.days)}:{})})}/></label><label>End date<input required type="date" min={payment.access_start} value={payment.access_end} onChange={e=>setPayment({...payment,access_end:e.target.value,days:''})}/></label></div>
+      <label>Receipt / reference<input maxLength={200} value={payment.reference} onChange={e=>setPayment({...payment,reference:e.target.value})}/></label>
+      <p className="form-note">Recording payment replaces this student's current access period. Access ends at 23:59 UTC on the end date, then automatically becomes suspended.</p>
+      <div className="form-actions"><button className="primary-button" disabled={busy}>Record payment & activate</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>setPayment(null)}>Cancel</button></div>
+      <h3>Payment history</h3>{historyError&&<p role="alert">{historyError}</p>}{!history.length&&!historyError&&<p className="table-note">No recorded payments.</p>}{history.map(p=><div className="payment-history-row" key={p.id}><strong>{(p.amount_cents/100).toFixed(2)} {p.currency}</strong><span>{p.access_start} to {p.access_end}</span><small>{p.reference||'No reference'} | {p.recorded_at} UTC</small></div>)}
+    </form>}</DialogContent></Dialog>
+    <Dialog open={!!access} onClose={()=>!busy&&setAccess(null)} fullWidth maxWidth="sm"><DialogTitle>Student access - {access?.student.name}</DialogTitle><DialogContent>{access&&<form className="management-form dialog-form" onSubmit={saveAccess}>
+      <label>Status<select value={access.status} onChange={e=>setAccess({...access,status:e.target.value})}><option value="active">Active</option><option value="suspended">Suspended by admin</option></select></label>
+      {access.status==='active'&&<div className="form-grid"><label>Start date<input required type="date" value={access.access_start} onChange={e=>setAccess({...access,access_start:e.target.value})}/></label><label>End date<input required type="date" min={access.access_start} value={access.access_end} onChange={e=>setAccess({...access,access_end:e.target.value})}/></label></div>}
+      <p className="form-note">{access.status==='suspended'?'The student will see "Account suspended by admin" when signing in.':'This changes access dates without recording a payment. Use Payment & duration to record money received.'}</p>
+      <div className="form-actions"><button className="primary-button" disabled={busy}>Save access</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>setAccess(null)}>Cancel</button></div>
+    </form>}</DialogContent></Dialog>
+  </div>;
+}

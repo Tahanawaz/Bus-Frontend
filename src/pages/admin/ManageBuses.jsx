@@ -1,3 +1,4 @@
+import DownloadPdfButton from '../../components/DownloadPdfButton';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
@@ -34,7 +35,7 @@ const ManageBuses = () => {
 
       setBuses(busRes.data);
       setDrivers(driverRes.data);
-      setRoutes(routeRes.data);
+      setRoutes([...new Map(routeRes.data.map(route => [route.id, route])).values()]);
     } catch (err) {
       console.error('Fetch Error:', err.response || err);
       const errorMsg = err.response?.data?.error || err.message || 'Unknown error';
@@ -133,11 +134,12 @@ const ManageBuses = () => {
   return (
     <Box>
       <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-        <Box className="flex justify-between items-center mb-8">
+        <Box className="flex flex-wrap gap-4 justify-between items-center mb-8">
           <Box>
             <Typography variant="h4" className="text-slate-900 font-bold tracking-tight">Fleet Management</Typography>
             <Typography variant="body2" className="text-slate-500 mt-1">Add, track and assign drivers to buses</Typography>
           </Box>
+          <DownloadPdfButton type="fleet" />
         </Box>
       </motion.div>
 

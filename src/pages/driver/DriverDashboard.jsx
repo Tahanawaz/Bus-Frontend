@@ -1,324 +1,98 @@
-import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
-import {
-  Box, Typography, Button, Card, CardContent, Grid,
-  Chip, Avatar, Divider, IconButton, Tooltip, CircularProgress,
-  Select, MenuItem, FormControl, InputLabel, Paper, Stepper, Step, StepLabel, StepConnector, stepConnectorClasses
-} from '@mui/material';
-import {
-  Navigation, Map as MapIcon, Bus as BusIcon,
-  Flag, Coffee, ChevronRight, ListOrdered, Activity
-} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Bus, Radio, Navigation, Flag, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-import { motion, AnimatePresence } from 'framer-motion';
-import { styled, useTheme } from '@mui/material/styles';
-
-// --- Custom Styled Connector ---
-const ColorlibConnector = styled(StepConnector)(({ theme }) => ({
-  [`&.${stepConnectorClasses.alternativeLabel}`]: { top: 22 },
-  [`&.${stepConnectorClasses.active}`]: { [`& .${stepConnectorClasses.line}`]: { backgroundColor: '#3b82f6' } },
-  [`&.${stepConnectorClasses.completed}`]: { [`& .${stepConnectorClasses.line}`]: { backgroundColor: '#3b82f6' } },
-  [`& .${stepConnectorClasses.line}`]: { height: 3, border: 0, backgroundColor: theme.palette.divider, borderRadius: 1 },
-}));
-
-const busIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-  iconSize: [30, 48],
-  iconAnchor: [15, 48],
-  popupAnchor: [0, -40]
-});
-
-const RecenterMap = ({ coords }) => {
-  const map = useMap();
-  useEffect(() => { if (coords) map.setView(coords, map.getZoom()); }, [coords]);
-  return null;
-};
-
-const DriverDashboard = () => {
-  const theme = useTheme();
-  const [bus, setBus] = useState(null);
-  const [route, setRoute] = useState(null);
-  const [status, setStatus] = useState('On time');
-  const [isSharing, setIsSharing] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState([31.5204, 74.3587]);
-  const [activeStopIndex, setActiveStopIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [stopCountdown, setStopCountdown] = useState(0);
-  const [isAtStop, setIsAtStop] = useState(false);
-  const [arrivedTimer, setArrivedTimer] = useState(false);
-  const [finalCountdown, setFinalCountdown] = useState(0);
-  const [history, setHistory] = useState([]);
-  const watchId = useRef(null);
-  const simulationId = useRef(null);
-  useEffect(() => () => {
-    if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
-    if (simulationId.current !== null) clearInterval(simulationId.current);
-  }, []);
-
-  const token = localStorage.getItem('token');
-  const user = JSON.parse(localStorage.getItem('user'));
-
-  const fetchData = async () => {
-    try {
-      const busRes = await axios.get('http://localhost:5001/api/buses/my-bus', { headers: { Authorization: `Bearer ${token}` } });
-      setBus(busRes.data);
-      setStatus(busRes.data.status);
-      if (busRes.data.lat) setCurrentLocation([busRes.data.lat, busRes.data.lng]);
-
-      if (busRes.data.route) {
-        const routeRes = await axios.get('http://localhost:5001/api/routes', { headers: { Authorization: `Bearer ${token}` } });
-        const assignedRoute = routeRes.data.find(r => r.name === busRes.data.route);
-        if (assignedRoute) {
-          const stops = JSON.parse(assignedRoute.stops);
-          setRoute({ ...assignedRoute, parsedStops: stops, parsedEtas: JSON.parse(assignedRoute.etas) });
-          const idx = stops.indexOf(busRes.data.current_stop);
-          setActiveStopIndex(idx !== -1 ? idx : 0);
-        }
-      }
-    } catch (err) { console.error(err); } finally { setLoading(false); }
+import { api } from '../../api';
+import TrackingMap from '../../components/TrackingMap';
+import StopTimeline from '../../components/StopTimeline';
+import { coordinates, parseList, formatSeconds } from '../../transportUtils';
+export default function DriverDashboard() {
+  const [bus,setBus]=useState(null);
+  const [route,setRoute]=useState(null);
+  const [error,setError]=useState('');
+  const [loading,setLoading]=useState(true);
+  const [sharing,setSharing]=useState('');
+  const [history,setHistory]=useState([]);
+  const [stopIndex,setStopIndex]=useState(0);
+  const [atStop,setAtStop]=useState(false);
+  const [remaining,setRemaining]=useState(0);
+  const [complete,setComplete]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const watch=useRef(null),simulation=useRef(null);
+  const user=JSON.parse(localStorage.getItem('user'));
+  const load=useCallback(async()=>{
+    try{
+      const b=(await api.get('/buses/my-bus')).data;setBus(b);
+      const routes=(await api.get('/routes')).data;
+      const r=routes.find(item=>item.id===b.route_id)||routes.find(item=>item.name===b.route);setRoute(r||null);
+      const stops=parseList(r?.stops),idx=stops.indexOf(b.current_stop);
+      const arrived=String(b.status).startsWith('Arrived');
+      setAtStop(arrived);setStopIndex(Math.max(0,Math.min(stops.length-1,idx+(String(b.status).startsWith('Moving')?1:0))));setComplete(b.status==='Journey Completed');setError('');
+    }catch(err){setError(err.response?.data?.error||'Unable to load your assigned bus.');}
+    finally{setLoading(false);}
+  },[]);
+  // Fetch initial server data; state updates happen after the asynchronous request.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(()=>{load();},[load]);
+  useEffect(()=>()=>{if(watch.current!==null)navigator.geolocation.clearWatch(watch.current);if(simulation.current!==null)clearInterval(simulation.current);},[]);
+  useEffect(()=>{if(!atStop)return;const timer=setInterval(()=>setRemaining(value=>Math.max(0,value-1)),1000);return()=>clearInterval(timer);},[atStop]);
+  const stopSharing=()=>{
+    if(watch.current!==null)navigator.geolocation.clearWatch(watch.current);
+    if(simulation.current!==null)clearInterval(simulation.current);
+    watch.current=null;simulation.current=null;setSharing('');
   };
-
-  useEffect(() => { fetchData(); }, []);
-
-  useEffect(() => {
-    let timer;
-    if (stopCountdown > 0) {
-      timer = setInterval(() => setStopCountdown(prev => prev - 1), 1000);
-    }
-    return () => clearInterval(timer);
-  }, [stopCountdown]);
-
-  useEffect(() => {
-    let timer;
-    if (finalCountdown > 0) {
-      timer = setInterval(() => setFinalCountdown(prev => prev - 1), 1000);
-    } else if (finalCountdown === 0 && arrivedTimer) {
-      handleResetTrip();
-    }
-    return () => clearInterval(timer);
-  }, [finalCountdown, arrivedTimer]);
-
-  const startTracking = () => {
-    setIsSharing(true);
-    toast.success("Location sharing started.");
-    watchId.current = navigator.geolocation.watchPosition(async (pos) => {
-      const { latitude, longitude } = pos.coords;
-      const newPos = [latitude, longitude];
-      setCurrentLocation(newPos);
-      setHistory(prev => [...prev, newPos]);
-      try {
-        await axios.put(`http://localhost:5001/api/buses/${bus.id}/location`, { lat: latitude, lng: longitude }, { headers: { Authorization: `Bearer ${token}` } });
-      } catch (e) { }
-    }, null, { enableHighAccuracy: true });
+  const sendPosition=async point=>{
+    try{await api.put('/buses/'+bus.id+'/location',{lat:point[0],lng:point[1]});setBus(previous=>({...previous,lat:point[0],lng:point[1]}));setHistory(previous=>[...previous,point].slice(-200));}
+    catch(err){stopSharing();toast.error(err.response?.data?.error||'Location update failed. Sharing stopped.');}
   };
-
-  const simulateMovement = () => {
-    if (simulationId.current !== null) clearInterval(simulationId.current);
-    setIsSharing(true);
-    toast.info("Simulation: Moving along route...");
-    let step = 0;
-    const baseLat = currentLocation[0];
-    const baseLng = currentLocation[1];
-    const interval = setInterval(async () => {
-      const nextLat = baseLat + (step * 0.0005);
-      const nextLng = baseLng + (step * 0.0008);
-      const newPos = [nextLat, nextLng];
-      setCurrentLocation(newPos);
-      setHistory(prev => [...prev, newPos]);
-
-      try {
-        await axios.put(`http://localhost:5001/api/buses/${bus.id}/location`, { lat: nextLat, lng: nextLng }, { headers: { Authorization: `Bearer ${token}` } });
-      } catch (e) { }
-
-      step++;
-      if (step > 30) clearInterval(interval);
-    }, 2000);
-    simulationId.current = interval;
+  const startSharing=()=>{
+    if(!navigator.geolocation){toast.error('This browser does not support location sharing.');return;}
+    stopSharing();setSharing('gps');
+    watch.current=navigator.geolocation.watchPosition(position=>sendPosition([position.coords.latitude,position.coords.longitude]),()=>{stopSharing();toast.error('Location unavailable. Allow location access and try again.');},{enableHighAccuracy:true,timeout:15000});
   };
-
-  const handleArriveAtStop = async () => {
-    const stopName = route.parsedStops[activeStopIndex];
-    setIsAtStop(true);
-    setStopCountdown(180);
-    try {
-      await axios.put(`http://localhost:5001/api/buses/${bus.id}/stop`, { stopName }, { headers: { Authorization: `Bearer ${token}` } });
-      const statusText = `Arrived at ${stopName}`;
-      await axios.put(`http://localhost:5001/api/buses/${bus.id}/status`, { status: statusText }, { headers: { Authorization: `Bearer ${token}` } });
-      setStatus(statusText);
-      toast.success(statusText);
-    } catch (e) { }
+  const simulate=()=>{
+    stopSharing();setSharing('demo');
+    const base=coordinates(bus)||[31.5204,74.3587];let step=0;
+    simulation.current=setInterval(()=>{step++;sendPosition([base[0]+step*.0005,base[1]+step*.0008]);if(step>=30)stopSharing();},2000);
   };
-
-  const handleLeaveStop = async () => {
-    const isFinal = activeStopIndex === route.parsedStops.length - 1;
-    if (isFinal) {
-      setArrivedTimer(true);
-      setFinalCountdown(60);
-      try {
-        await axios.put(`http://localhost:5001/api/buses/${bus.id}/status`, { status: 'Journey Completed' }, { headers: { Authorization: `Bearer ${token}` } });
-      } catch(e) {}
-      return;
-    }
-
-    setIsAtStop(false);
-    setStopCountdown(0);
-    const nextIdx = activeStopIndex + 1;
-    const nextStopName = route.parsedStops[nextIdx];
-
-    // Crucially: Don't update the stop name in DB yet, only the status
-    // This way student panel knows we are MOVING but still lists last stop
-    try {
-      const statusText = `Moving toward ${nextStopName}`;
-      await axios.put(`http://localhost:5001/api/buses/${bus.id}/status`, { status: statusText }, { headers: { Authorization: `Bearer ${token}` } });
-      setStatus(statusText);
-      toast.info(statusText);
-      // We advance the index for the driver's UI to show what's next
-      setActiveStopIndex(nextIdx);
-    } catch (e) { }
+  const stops=parseList(route?.stops),etas=parseList(route?.etas);
+  const arrive=async()=>{
+    if(!stops[stopIndex])return;
+    setBusy(true);
+    try{
+      const stop=stops[stopIndex],status='Arrived at '+stop;
+      await api.put('/buses/'+bus.id+'/stop',{stopName:stop});await api.put('/buses/'+bus.id+'/status',{status});
+      setBus(previous=>({...previous,current_stop:stop,status}));setAtStop(true);setRemaining(180);
+    }catch(err){toast.error(err.response?.data?.error||'Unable to mark arrival.');}finally{setBusy(false);}
   };
-
-  const handleResetTrip = () => {
-    setActiveStopIndex(0);
-    setIsAtStop(false);
-    setArrivedTimer(false);
-    setHistory([]);
-    setStatus('On time');
+  const proceed=async()=>{
+    setBusy(true);
+    try{
+      const last=stopIndex===stops.length-1,status=last?'Journey Completed':'Moving toward '+stops[stopIndex+1];
+      await api.put('/buses/'+bus.id+'/status',{status});setBus(previous=>({...previous,status}));setAtStop(false);setRemaining(0);
+      if(last){setComplete(true);stopSharing();}else setStopIndex(i=>i+1);
+    }catch(err){toast.error(err.response?.data?.error||'Unable to update journey.');}finally{setBusy(false);}
   };
-
-  const handleTrafficDelay = async () => {
-    try {
-      const statusText = 'Delayed due to traffic';
-      await axios.put(`http://localhost:5001/api/buses/${bus.id}/status`, { status: statusText }, { headers: { Authorization: `Bearer ${token}` } });
-      setStatus(statusText);
-      toast.warning('Traffic delay reported to students');
-    } catch (e) {
-      toast.error('Failed to report delay');
-    }
+  const reset=async()=>{
+    setBusy(true);
+    try{await api.put('/buses/'+bus.id+'/reset',{});setBus(previous=>({...previous,status:'On time',current_stop:null}));setComplete(false);setStopIndex(0);setAtStop(false);setRemaining(0);setHistory([]);}
+    catch(err){toast.error(err.response?.data?.error||'Unable to reset trip.');}finally{setBusy(false);}
   };
-
-  const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
-
-  if (loading) return <Box className="h-screen flex items-center justify-center bg-slate-50"><CircularProgress /></Box>;
-
-  return (
-    <Box className="pb-10 relative bg-slate-50">
-      <AnimatePresence>
-        {arrivedTimer && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[2000] bg-white/95 backdrop-blur-2xl flex items-center justify-center">
-            <Box className="text-center p-16 bg-white border border-blue-500/30 rounded-3xl shadow-[0_0_100px_rgba(59,130,246,0.2)] max-w-lg">
-              <Flag size={80} className="text-blue-500 mx-auto mb-8 animate-bounce" />
-              <Typography variant="h2" className="text-slate-900 font-bold mb-4 tracking-tighter">Journey complete</Typography>
-              <Typography className="text-slate-500 mb-10 text-xl font-bold">Route completed. Your trip has reached its final stop.</Typography>
-              <Box className="p-8 bg-blue-500/5 rounded-2xl border border-blue-500/10 mb-10">
-                <Typography variant="h1" className="text-blue-500 font-mono font-bold">{formatTime(finalCountdown)}</Typography>
-              </Box>
-              <Button fullWidth variant="contained" onClick={handleResetTrip} className="bg-blue-600 py-5 rounded-[24px] font-bold text-2xl shadow-sm shadow-blue-900/40">Start a new journey</Button>
-            </Box>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <Box className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
-        <Box>
-          <Typography variant="h3" className="text-slate-900 font-bold tracking-tighter flex items-center gap-4">
-            My journey <Activity className="text-blue-500 animate-pulse" />
-          </Typography>
-          <Typography variant="body1" className="text-slate-500 font-bold uppercase tracking-[0.3em] mt-1">{bus?.name} | {bus?.number_plate}</Typography>
-        </Box>
-        <Box className="flex gap-3 w-full md:w-auto">
-          <Button variant="outlined" onClick={simulateMovement} className="border-blue-500 text-blue-500 rounded-2xl px-6 py-4 font-bold">SIMULATE</Button>
-          {!isSharing ? (
-            <Button variant="contained" onClick={startTracking} className="bg-blue-600 hover:bg-blue-700 rounded-2xl px-12 py-4 font-bold shadow-sm shadow-blue-900/40">START BROADCAST</Button>
-          ) : (
-            <Box className="bg-green-500/10 border border-green-500/20 px-6 py-4 rounded-2xl flex items-center gap-3">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-              <Typography className="text-green-500 font-bold tracking-widest text-sm">TRANSMITTING LIVE</Typography>
-            </Box>
-          )}
-        </Box>
-      </Box>
-
-      <Grid container spacing={4}>
-        <Grid size={{ xs: 12, lg: 4 }}>
-          <Card className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 sticky top-4">
-            <Box className="mb-10 text-center">
-              <Typography variant="caption" className="text-slate-500 font-bold uppercase tracking-[0.2em] block mb-2">Current Objective</Typography>
-              <Typography variant="h4" className="text-slate-900 font-bold">{isAtStop ? 'HOLDING AT STOP' : `MOVING TO ${route?.parsedStops[activeStopIndex]}`}</Typography>
-            </Box>
-
-            <Stepper orientation="vertical" activeStep={activeStopIndex} connector={<ColorlibConnector />}>
-              {route?.parsedStops.map((stop, index) => (
-                <Step key={stop} completed={index < activeStopIndex}>
-                  <StepLabel StepIconProps={{ sx: { color: index < activeStopIndex ? '#3b82f6' : index === activeStopIndex ? '#3b82f6' : theme.palette.text.disabled } }}>
-                    <Box sx={{ opacity: index < activeStopIndex ? 0.3 : 1, filter: index < activeStopIndex ? 'grayscale(1)' : 'none' }}>
-                      <Typography className="text-slate-900 font-bold text-lg">{stop}</Typography>
-                      <Typography variant="caption" className="text-blue-500 font-bold">{route.parsedEtas[index]}</Typography>
-                    </Box>
-                  </StepLabel>
-                </Step>
-              ))}
-            </Stepper>
-
-            <Divider className="border-slate-200 my-10" />
-
-            <Box>
-              {!isAtStop ? (
-                <>
-                  <Button fullWidth variant="contained" onClick={handleArriveAtStop} className="bg-orange-600 hover:bg-orange-700 rounded-[24px] py-6 font-bold text-xl shadow-sm shadow-orange-900/40">
-                    MARK ARRIVAL
-                  </Button>
-                  <Box className="mt-4">
-                    <Button fullWidth variant="outlined" onClick={handleTrafficDelay} className="border-red-500 text-red-500 hover:bg-red-500/10 rounded-[24px] py-4 font-bold text-lg">
-                      REPORT TRAFFIC DELAY
-                    </Button>
-                  </Box>
-                </>
-              ) : (
-                <Box className="p-8 bg-blue-600/5 rounded-2xl border border-blue-500/20 text-center">
-                  <Typography className="text-blue-500 font-bold uppercase tracking-widest mb-2">Break Remaining</Typography>
-                  <Typography variant="h2" className="text-slate-900 font-mono font-bold mb-8">{formatTime(stopCountdown)}</Typography>
-                  <Button fullWidth variant="contained" onClick={handleLeaveStop} className="bg-blue-600 hover:bg-blue-700 rounded-[24px] py-5 font-bold text-xl">
-                    PROCEED <ChevronRight size={24} className="ml-2" />
-                  </Button>
-                </Box>
-              )}
-            </Box>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <Card className="bg-white border border-slate-200 rounded-2xl overflow-hidden relative shadow-sm h-[600px] border-t-blue-500/20">
-            <MapContainer center={currentLocation} zoom={16} style={{ height: '100%', width: '100%' }}>
-              <TileLayer url={`https://{s}.basemaps.cartocdn.com/${theme.palette.mode === 'dark' ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`} attribution='&copy; CARTO' />
-              <RecenterMap coords={currentLocation} />
-              <Polyline positions={history} color="#3b82f6" weight={5} opacity={0.6} />
-              <Marker position={currentLocation} icon={busIcon}>
-                <Popup><Typography className="font-bold">{bus?.name}</Typography></Popup>
-              </Marker>
-            </MapContainer>
-
-            <Box className="absolute top-5 right-5 z-[1000]">
-              <Paper className="bg-white/80 backdrop-blur-xl border border-slate-200 p-4 rounded-3xl">
-                <Box className="flex items-center gap-3">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse" />
-                  <Typography className="text-slate-900 font-bold text-sm">GPS LOCK: 31.52°N, 74.35°E</Typography>
-                </Box>
-              </Paper>
-            </Box>
-
-            <Box className="absolute bottom-5 left-5 right-5 z-[1000]">
-              <Button fullWidth variant="contained" className="bg-white text-slate-800 py-3 rounded-xl font-semibold text-sm hover:bg-gray-100 shadow-sm" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${currentLocation[0]},${currentLocation[1]}`, '_blank')}>
-                <Navigation size={22} className="mr-3" /> Open in Google Maps
-              </Button>
-            </Box>
-          </Card>
-        </Grid>
-      </Grid>
-    </Box>
-  );
-};
-
-export default DriverDashboard;
+  const reportDelay=async()=>{
+    setBusy(true);
+    try{await api.put('/buses/'+bus.id+'/status',{status:'Delayed due to traffic'});setBus(previous=>({...previous,status:'Delayed due to traffic'}));toast.success('Delay reported to students.');}
+    catch(err){toast.error(err.response?.data?.error||'Unable to report delay.');}finally{setBusy(false);}
+  };
+  if(loading)return <div className="tracking-empty" role="status">Loading your journey...</div>;
+  if(!bus)return <div className="tracking-empty"><Bus size={34}/><h1>No bus assigned</h1><p>{error||'Contact your institute admin to assign a bus and route.'}</p><button className="secondary-button" onClick={load}>Check again</button></div>;
+  return <div className="tracking-page driver-tracking">
+    <header className="tracking-heading"><div><span className="eyebrow">{user?.institute_name||'DRIVER WORKSPACE'}</span><h1>My journey</h1><p>{bus.name} / {bus.number_plate}</p></div><div className="tracking-actions"><button className="secondary-button" disabled={!!sharing||complete} onClick={simulate}>Simulate route</button>{sharing?<button className="primary-button" onClick={stopSharing}>Stop sharing</button>:<button className="primary-button" disabled={complete} onClick={startSharing}><Radio size={16}/>Share location</button>}</div></header>
+    {error&&<div className="error-notice" role="alert">{error}</div>}
+    <div className="journey-status"><span className={'connection-pill '+(sharing?'connected':'')}><Radio size={15}/>{sharing==='demo'?'Simulation running':sharing?'Sharing GPS location':'Location sharing off'}</span><span>{bus.status}</span></div>
+    {complete&&<section className="journey-complete"><Flag size={30}/><div><h2>Journey complete</h2><p>You have reached the final stop. Start a new trip when ready.</p></div><button className="primary-button" disabled={busy} onClick={reset}>Start new journey</button></section>}
+    <div className="tracking-layout"><section className="driver-route-panel"><header><span className="eyebrow">{atStop?'AT CURRENT STOP':'NEXT STOP'}</span><h2>{complete?'Trip completed':stops[stopIndex]||'Route not assigned'}</h2><p>{route?.name||'Ask your institute admin to assign a route with stops.'}</p></header><StopTimeline stops={stops} etas={etas} activeIndex={complete?stops.length:stopIndex}/>
+      <div className="driver-route-actions">{atStop&&<div className="stop-countdown">Stop wait<strong>{formatSeconds(remaining)}</strong></div>}
+      <button className="primary-button" disabled={busy||!stops.length||complete} onClick={atStop?proceed:arrive}><Navigation size={16}/>{atStop?(stopIndex===stops.length-1?'Finish journey':'Proceed to next stop'):'Mark arrival'}</button>
+      <button className="secondary-button" disabled={busy||complete} onClick={reportDelay}><AlertTriangle size={16}/>Report traffic delay</button></div>
+    </section><div className="tracking-map-column"><TrackingMap buses={[{...bus,history}]} selectedId={bus.id}/></div></div>
+  </div>;
+}

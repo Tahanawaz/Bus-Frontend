@@ -1,327 +1,73 @@
-import { useEffect, useState, useRef } from 'react';
-import io from 'socket.io-client';
-import axios from 'axios';
-import {
-  Box, Typography, Button, Card, CardContent, Chip, Grid,
-  CircularProgress, IconButton, Avatar, Tooltip, Divider,
-  Stepper, Step, StepLabel, StepConnector, stepConnectorClasses, Paper
-} from '@mui/material';
-import {
-  MapPin, Bus as BusIcon, Navigation, Activity,
-  CheckCircle, AlertCircle, Clock, LocateFixed, Eye,
-  ExternalLink, Bell, Milestone, ChevronRight, Timer, X, Users
-} from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-import { motion, AnimatePresence } from 'framer-motion';
-import { styled, useTheme } from '@mui/material/styles';
-
-// --- Custom Styled Connector ---
-const ColorlibConnector = styled(StepConnector)(({ theme }) => ({
-  [`&.${stepConnectorClasses.alternativeLabel}`]: { top: 22 },
-  [`&.${stepConnectorClasses.active}`]: { [`& .${stepConnectorClasses.line}`]: { backgroundColor: '#3b82f6' } },
-  [`&.${stepConnectorClasses.completed}`]: { [`& .${stepConnectorClasses.line}`]: { backgroundColor: '#3b82f6' } },
-  [`& .${stepConnectorClasses.line}`]: { height: 3, border: 0, backgroundColor: theme.palette.divider, borderRadius: 1 },
-}));
-
-const busIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-  iconSize: [30, 48],
-  iconAnchor: [15, 48],
-  popupAnchor: [0, -40]
-});
-
-const MapController = ({ center }) => {
-  const map = useMap();
-  useEffect(() => { if (center) map.setView(center, 16); }, [center]);
-  return null;
-};
-
-// Fixes React Leaflet black screen on remount by invalidating tile size
-const MapInitializer = () => {
-  const map = useMap();
-  useEffect(() => {
-    const timer = setTimeout(() => map.invalidateSize(), 100);
-    return () => clearTimeout(timer);
-  }, [map]);
-  return null;
-};
-
-const StudentDashboard = () => {
-  const theme = useTheme();
-  const [buses, setBuses] = useState([]);
-  const [routes, setRoutes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [socketConnected, setSocketConnected] = useState(false);
-  const [followBusId, setFollowBusId] = useState(null);
-  const [notifications, setNotifications] = useState([]);
-  const [activeTimers, setActiveTimers] = useState({}); // { busId: seconds }
-
-  const token = localStorage.getItem('token');
-  const socketRef = useRef(null);
-
-  const fetchData = async () => {
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Bus, Radio, Users, Bell, X, RefreshCw } from 'lucide-react';
+import { api, connectSocket } from '../../api';
+import TrackingMap from '../../components/TrackingMap';
+import StopTimeline from '../../components/StopTimeline';
+import { coordinates, parseList, formatSeconds } from '../../transportUtils';
+export default function StudentDashboard() {
+  const [buses,setBuses]=useState([]);
+  const [routes,setRoutes]=useState([]);
+  const [selectedId,setSelectedId]=useState(null);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  const [connected,setConnected]=useState(false);
+  const [notices,setNotices]=useState([]);
+  const [timers,setTimers]=useState({});
+  const busRef=useRef([]);
+  const user=JSON.parse(localStorage.getItem('user'));
+  const load=useCallback(async()=>{
     try {
-      const [busRes, routeRes] = await Promise.all([
-        axios.get('http://localhost:5001/api/buses', { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get('http://localhost:5001/api/routes', { headers: { Authorization: `Bearer ${token}` } })
-      ]);
-      const busData = busRes.data;
-      setBuses(busData);
-      setRoutes(routeRes.data.map(r => ({
-        ...r,
-        parsedStops: typeof r.stops === 'string' ? JSON.parse(r.stops) : r.stops,
-        parsedEtas: typeof r.etas === 'string' ? JSON.parse(r.etas) : r.etas
-      })));
-
-      // Auto-select bus if coming from "Track this Route" in BusList
-      const trackRouteName = sessionStorage.getItem('trackRouteName');
-      if (trackRouteName) {
-        const targetBus = busData.find(b => b.route === trackRouteName);
-        if (targetBus) setFollowBusId(targetBus.id);
-        sessionStorage.removeItem('trackRouteName');
-      }
-    } catch (err) { console.error(err); } finally { setLoading(false); }
-  };
-
-  const addNotification = (msg) => {
-    const id = Math.random().toString(36).substr(2, 9);
-    setNotifications(prev => {
-      const newList = [{ id, msg }, ...prev];
-      return newList.slice(0, 3);
+      const [b,r]=await Promise.all([api.get('/buses'),api.get('/routes')]);
+      busRef.current=b.data;setBuses(b.data);setRoutes(r.data);
+      const busId=sessionStorage.getItem('trackBusId');
+      const target=b.data.find(bus=>bus.id===Number(busId));
+      setSelectedId(previous=>target?.id || (b.data.some(bus=>bus.id===previous)?previous:b.data[0]?.id ?? null));
+      if(busId)sessionStorage.removeItem('trackBusId');
+      setError('');
+    } catch(err){setError(err.response?.data?.error||'Unable to load your campus buses.');}
+    finally{setLoading(false);}
+  },[]);
+  useEffect(()=>{
+    let active=true;
+    // Load the initial server snapshot before subscribing to live updates.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+    const socket=connectSocket();
+    const notify=message=>setNotices(previous=>[{id:crypto.randomUUID(),message},...previous].slice(0,3));
+    socket.on('connect',()=>{if(active){setConnected(true);load();}});
+    socket.on('disconnect',()=>setConnected(false));
+    socket.on('busUpdated',load);
+    socket.on('locationUpdate',data=>{
+      const point=coordinates(data);if(!point)return;
+      setBuses(previous=>previous.map(bus=>bus.id===Number(data.id)?{...bus,lat:point[0],lng:point[1],history:[...(bus.history||[]),point].slice(-50)}:bus));
     });
-  };
-
-  const removeNotification = (id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
-
-  useEffect(() => {
-    fetchData();
-    socketRef.current = io('http://localhost:5001', { transports: ['websocket'] });
-
-    socketRef.current.on('connect', () => setSocketConnected(true));
-
-    socketRef.current.on('locationUpdate', (data) => {
-      setBuses(prev => prev.map(bus => {
-        if (bus.id === parseInt(data.id)) {
-          const newPos = [data.lat, data.lng];
-          // If this is the followed bus, update its history for the trail
-          return { ...bus, lat: data.lat, lng: data.lng, history: [...(bus.history || []), newPos].slice(-50) };
-        }
-        return bus;
-      }));
+    socket.on('statusUpdate',data=>{
+      const status=String(data.status||'No status reported');
+      setBuses(previous=>previous.map(bus=>bus.id===Number(data.id)?{...bus,status}:bus));
+      setTimers(previous=>({...previous,[data.id]:status.includes('Arrived')?180:0}));
+      notify((busRef.current.find(bus=>bus.id===Number(data.id))?.name||'Bus')+': '+status);
     });
-
-    socketRef.current.on('statusUpdate', (data) => {
-      setBuses(prev => prev.map(bus => {
-        if (bus.id === parseInt(data.id)) {
-          if (data.status.includes('Arrived')) {
-            setActiveTimers(t => ({ ...t, [bus.id]: 180 })); // Sync 3 min timer
-          } else {
-            setActiveTimers(t => { const newT = { ...t }; delete newT[bus.id]; return newT; });
-          }
-          addNotification(`${bus.name}: ${data.status}`);
-          return { ...bus, status: data.status };
-        }
-        return bus;
-      }));
-    });
-
-    socketRef.current.on('stopUpdate', (data) => {
-      setBuses(prev => prev.map(bus => {
-        if (bus.id === parseInt(data.id)) {
-          addNotification(`${bus.name} reached ${data.current_stop}`);
-          return { ...bus, current_stop: data.current_stop };
-        }
-        return bus;
-      }));
-    });
-
-    return () => socketRef.current.disconnect();
-  }, []);
-
-  // Timer interval for student side
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveTimers(prev => {
-        const next = { ...prev };
-        Object.keys(next).forEach(id => {
-          if (next[id] > 0) next[id] -= 1;
-          else delete next[id];
-        });
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const getFollowedBus = () => buses.find(b => b.id === followBusId);
-  const getBusRoute = (bus) => routes.find(r => r.name === bus?.route);
-  const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
-
-  if (loading) return <Box className="h-screen flex items-center justify-center bg-slate-50"><CircularProgress /></Box>;
-
-  return (
-    <Box className="pb-10 bg-slate-50 min-h-screen">
-      {/* Real-time Toast Notifications */}
-      <Box className="fixed top-24 right-6 z-[3000] space-y-3 pointer-events-none">
-        <AnimatePresence>
-          {notifications.map(n => (
-            <motion.div key={n.id} initial={{ opacity: 0, y: -20, scale: 0.8 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.5, x: 50 }}>
-              <Paper className="bg-blue-600 text-white px-6 py-4 rounded-2xl shadow-[0_10px_40px_rgba(37,99,235,0.4)] flex items-center gap-4 border border-slate-200 backdrop-blur-xl pointer-events-auto">
-                <Avatar className="bg-white/20 text-slate-900 w-8 h-8"><Bell size={16} /></Avatar>
-                <Typography variant="body2" className="font-bold tracking-tight flex-1">{n.msg}</Typography>
-                <IconButton size="small" onClick={() => removeNotification(n.id)} className="text-slate-900/50 hover:text-slate-900 transition-colors">
-                  <X size={16} />
-                </IconButton>
-              </Paper>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </Box>
-
-      <Box className="flex justify-between items-center mb-10">
-        <Box>
-          <Typography variant="h3" className="text-slate-900 font-bold tracking-tighter flex items-center gap-4">
-            Live bus tracking <Activity className="text-blue-500 animate-pulse" />
-          </Typography>
-          <Typography variant="body1" className="text-slate-500 font-bold uppercase tracking-[0.3em] mt-1">
-            {socketConnected ? 'Live connection active' : 'RECONNECTING...'}
-          </Typography>
-        </Box>
-      </Box>
-
-      <Grid container spacing={4}>
-        {/* Fleet Sidebar */}
-        <Grid size={{ xs: 12, lg: 4 }}>
-          <Box className="space-y-6">
-            <Typography variant="caption" className="text-slate-500 font-bold uppercase tracking-[0.25em] block mb-2">Your campus buses</Typography>
-            {buses.map(bus => {
-              const busRoute = getBusRoute(bus);
-              const activeStopIdx = busRoute?.parsedStops.indexOf(bus.current_stop) || 0;
-              const isSelected = followBusId === bus.id;
-              const timer = activeTimers[bus.id];
-
-              return (
-                <Card
-                  key={bus.id}
-                  onClick={() => setFollowBusId(bus.id)}
-                  className={`bg-white border ${isSelected ? 'border-blue-500' : 'border-slate-200'} rounded-2xl cursor-pointer transition-all hover:border-slate-200 overflow-hidden shadow-sm`}
-                >
-                  <CardContent className="p-8">
-                    <Box className="flex justify-between items-start mb-6">
-                      <Box className="flex items-center gap-4">
-                        <Avatar className={isSelected ? "bg-blue-600 text-white" : "bg-slate-50 text-slate-500"} sx={{ width: 48, height: 48 }}>
-                          <BusIcon size={24} />
-                        </Avatar>
-                        <Box>
-                          <Typography variant="h6" className="text-slate-900 font-bold leading-tight">{bus.name}</Typography>
-                          <Typography variant="caption" className="text-slate-500 font-bold uppercase tracking-widest block">{bus.number_plate}</Typography>
-                          <Typography variant="caption" className="text-blue-400 font-bold flex items-center gap-1 mt-1">
-                            <Users size={12} /> {bus.driver_name || 'Unassigned'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Chip
-                        label={bus.status}
-                        size="small"
-                        className={`font-bold uppercase text-[10px] ${bus.status.includes('Arrived') ? 'bg-orange-600 text-white' : bus.status.includes('Moving') ? 'bg-green-600 text-white' : 'bg-blue-500/10 text-blue-500'}`}
-                      />
-                    </Box>
-
-                    {timer > 0 && (
-                      <Box className="mb-6 p-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl flex items-center justify-between">
-                        <Box className="flex items-center gap-2 text-orange-500">
-                          <Timer size={16} className="animate-spin-slow" />
-                          <Typography variant="caption" className="font-bold">STOP DELAY</Typography>
-                        </Box>
-                        <Typography className="text-slate-900 font-mono font-bold">{formatTime(timer)}</Typography>
-                      </Box>
-                    )}
-
-                    {isSelected && busRoute && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}>
-                        <Divider className="border-slate-200 mb-6" />
-                        <Typography variant="caption" className="text-slate-500 font-bold uppercase tracking-widest block mb-4">Route Journey</Typography>
-                        <Stepper orientation="vertical" activeStep={activeStopIdx} connector={<ColorlibConnector />}>
-                          {busRoute.parsedStops.map((stop, i) => (
-                            <Step key={stop} completed={i < activeStopIdx}>
-                              <StepLabel StepIconProps={{ sx: { color: i <= activeStopIdx ? '#3b82f6' : theme.palette.text.disabled } }}>
-                                <Box sx={{ opacity: i < activeStopIdx ? 0.3 : 1 }}>
-                                  <Typography className="text-slate-900 font-bold text-sm">{stop}</Typography>
-                                  <Typography variant="caption" className="text-blue-500 font-bold">{busRoute.parsedEtas[i]}</Typography>
-                                </Box>
-                              </StepLabel>
-                            </Step>
-                          ))}
-                        </Stepper>
-                      </motion.div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </Box>
-        </Grid>
-
-        {/* Live map */}
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <Card className="bg-white border border-slate-200 rounded-2xl overflow-hidden relative shadow-sm h-[600px] border-t-blue-500/20">
-             <MapContainer center={[31.5204, 74.3587]} zoom={15} style={{ height: '100%', width: '100%' }}>
-                <MapInitializer />
-                <TileLayer url={`https://{s}.basemaps.cartocdn.com/${theme.palette.mode === 'dark' ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`} attribution='&copy; CARTO' />
-                <MapController center={followBusId && getFollowedBus()?.lat && getFollowedBus()?.lng ? [getFollowedBus().lat, getFollowedBus().lng] : null} />
-
-                {buses.map(bus => (
-                  <div key={bus.id}>
-                    {bus.history && <Polyline positions={bus.history} color="#3b82f6" weight={4} opacity={0.5} />}
-                    <Marker position={[bus.lat || 31.5204, bus.lng || 74.3587]} icon={busIcon}>
-                      <Popup className="custom-popup">
-                        <Box className="p-2 min-w-[150px]">
-                          <Typography className="font-bold text-blue-600">{bus.name}</Typography>
-                          <Typography variant="caption" className="text-slate-500 font-bold uppercase">{bus.status}</Typography>
-                          <Divider className="my-2" />
-                          <Box className="flex items-center gap-2">
-                            <Milestone size={14} className="text-blue-500" />
-                            <Typography variant="body2" className="font-bold">{bus.current_stop || 'Tracking...'}</Typography>
-                          </Box>
-                          <Box className="flex items-center gap-2 mt-1">
-                            <Users size={14} className="text-blue-500" />
-                            <Typography variant="caption" className="font-bold text-slate-500">Driver: {bus.driver_name || 'Unassigned'}</Typography>
-                          </Box>
-                        </Box>
-                      </Popup>
-                    </Marker>
-                  </div>
-                ))}
-             </MapContainer>
-
-             {followBusId && (
-               <Box className="absolute bottom-5 left-5 right-5 z-[1000] flex gap-4">
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    className="bg-white text-slate-800 py-3 rounded-xl font-semibold text-sm shadow-sm hover:bg-gray-100"
-                    onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${getFollowedBus()?.lat},${getFollowedBus()?.lng}`, '_blank')}
-                  >
-                    <Navigation size={24} className="mr-3" /> Open in Google Maps
-                  </Button>
-               </Box>
-             )}
-
-             <Box className="absolute top-5 right-5 z-[1000]">
-                <Paper className="bg-white/95 backdrop-blur-md border border-slate-200 p-4 rounded-3xl">
-                  <Typography variant="caption" className="text-blue-500 font-bold tracking-widest block mb-1">SELECTED UNIT</Typography>
-                  <Typography className="text-slate-900 font-bold">{getFollowedBus()?.name || 'Awaiting Target...'}</Typography>
-                </Paper>
-             </Box>
-          </Card>
-        </Grid>
-      </Grid>
-    </Box>
-  );
-};
-
-export default StudentDashboard;
+    socket.on('stopUpdate',data=>setBuses(previous=>previous.map(bus=>bus.id===Number(data.id)?{...bus,current_stop:data.current_stop}:bus)));
+    return()=>{active=false;socket.disconnect();};
+  },[load]);
+  useEffect(()=>{const timer=setInterval(()=>setTimers(previous=>Object.fromEntries(Object.entries(previous).map(([id,value])=>[id,Math.max(0,value-1)]))),1000);return()=>clearInterval(timer);},[]);
+  return <div className="tracking-page student-tracking">
+    <header className="tracking-heading"><div><span className="eyebrow">{user?.institute_name||'YOUR CAMPUS'}</span><h1>Live bus tracking</h1><p>Choose your bus to see its route, stops, and last reported location.</p></div><span className={'connection-pill '+(connected?'connected':'')}><Radio size={15}/>{connected?'Connected':'Reconnecting...'}</span></header>
+    {user?.access_end&&<div className="access-period-note">Your transport access: <strong>{user.access_start} to {user.access_end}</strong><span>Valid through the end date (UTC).</span></div>}
+    {error&&<div className="error-notice" role="alert">{error}<button className="secondary-button" onClick={load}><RefreshCw size={15}/>Retry</button></div>}
+    <div className="tracking-notices" aria-live="polite">{notices.map(n=><div key={n.id}><Bell size={17}/><span>{n.message}</span><button aria-label="Dismiss notification" onClick={()=>setNotices(previous=>previous.filter(item=>item.id!==n.id))}><X size={16}/></button></div>)}</div>
+    {loading?<div className="tracking-empty" role="status">Loading campus buses...</div>:<div className="tracking-layout">
+      <section className="tracking-bus-list" aria-label="Campus buses">{!buses.length?<div className="tracking-empty"><Bus size={30}/><h2>No buses available</h2><p>Your institute admin has not added any buses yet.</p></div>:buses.map(bus=>{
+        const route=routes.find(r=>r.id===bus.route_id)||routes.find(r=>r.name===bus.route);
+        const stops=parseList(route?.stops),etas=parseList(route?.etas),selected=bus.id===selectedId;
+        return <article className={'tracking-bus-card '+(selected?'selected':'')} key={bus.id}>
+          <button className="bus-select-button" onClick={()=>setSelectedId(bus.id)} aria-expanded={selected}><span className="mini-icon"><Bus size={22}/></span><span><strong>{bus.name}</strong><small>{bus.number_plate}</small></span><span className="selection-dot" aria-hidden="true"/></button>
+          <div className="bus-card-details"><span className="bus-driver"><Users size={14}/>{bus.driver_name||'Driver unassigned'}</span><span className="tracking-status">{bus.status||'No status reported'}</span></div>
+          {timers[bus.id]>0&&<div className="stop-countdown">Stop wait <strong>{formatSeconds(timers[bus.id])}</strong></div>}
+          {selected&&<div className="bus-route-details"><h3>{route?.name||'Route not assigned'}</h3><StopTimeline stops={stops} etas={etas} activeIndex={stops.indexOf(bus.current_stop)}/></div>}
+        </article>;
+      })}</section>
+      <div className="tracking-map-column"><TrackingMap buses={buses} selectedId={selectedId} onSelect={setSelectedId}/></div>
+    </div>}
+  </div>;
+}

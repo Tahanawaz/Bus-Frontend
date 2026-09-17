@@ -1,3 +1,4 @@
+import DownloadPdfButton from '../../components/DownloadPdfButton';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
@@ -107,11 +108,12 @@ const ManageDrivers = () => {
   return (
     <Box>
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-        <Box className="flex justify-between items-center mb-8">
+        <Box className="flex flex-wrap gap-4 justify-between items-center mb-8">
           <Box>
             <Typography variant="h4" className="text-slate-900 font-bold tracking-tight">Driver Personnel</Typography>
             <Typography variant="body2" className="text-slate-500 mt-1">Manage driver credentials and fleet access</Typography>
           </Box>
+          <DownloadPdfButton type="drivers" params={{ search: searchTerm }} />
         </Box>
       </motion.div>
 

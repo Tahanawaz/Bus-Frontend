@@ -1,3 +1,4 @@
+import DownloadPdfButton from '../../components/DownloadPdfButton';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
@@ -105,11 +106,12 @@ const ManageRoutes = () => {
   return (
     <Box>
       <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-        <Box className="flex justify-between items-center mb-8">
+        <Box className="flex flex-wrap gap-4 justify-between items-center mb-8">
           <Box>
             <Typography variant="h4" className="text-slate-900 font-bold tracking-tight">Navigation Mapping</Typography>
             <Typography variant="body2" className="text-slate-500 mt-1">Define university routes and estimated arrival times</Typography>
           </Box>
+          <DownloadPdfButton type="routes" />
         </Box>
       </motion.div>
 

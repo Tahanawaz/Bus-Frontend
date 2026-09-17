@@ -1,3 +1,5 @@
+import SessionGate from './components/SessionGate';
+import Institutes from './pages/admin/Institutes';
 import { useMemo } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { buildTheme } from './theme';
@@ -33,7 +35,7 @@ import DriverDashboard from './pages/driver/DriverDashboard';
 function PrivateRoute({ children, roleRequired }) {
   const user = JSON.parse(localStorage.getItem('user'));
   if (!user) return <Navigate to="/login" />;
-  if (roleRequired && user.role !== roleRequired) return <Navigate to="/login" />;
+  if (roleRequired && user.role !== roleRequired && !(roleRequired === 'admin' && user.role === 'superadmin')) return <Navigate to="/login" />;
   return children;
 }
 
@@ -43,7 +45,7 @@ function SharedApp({ mode }) {
     <MotionConfig reducedMotion="user"><StyledEngineProvider injectFirst><ThemeProvider theme={theme}>
       <CssBaseline />
       <ToastContainer theme={mode} position="top-right" autoClose={3000} />
-      <Router>
+      <SessionGate><Router>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
@@ -60,6 +62,8 @@ function SharedApp({ mode }) {
             <Route path="drivers" element={<ManageDrivers />} />
             <Route path="students" element={<ManageStudents />} />
             <Route path="routes" element={<ManageRoutes />} />
+            <Route path="reports" element={<Navigate to="/admin" replace />} />
+            <Route path="institutes" element={<PrivateRoute roleRequired="superadmin"><Institutes /></PrivateRoute>} />
           </Route>
           
           <Route path="/driver" element={<PrivateRoute roleRequired="driver"><DashboardLayout role="driver" /></PrivateRoute>}>
@@ -68,7 +72,7 @@ function SharedApp({ mode }) {
 
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
-      </Router>
+      </Router></SessionGate>
     </ThemeProvider></StyledEngineProvider></MotionConfig>
   );
 }
