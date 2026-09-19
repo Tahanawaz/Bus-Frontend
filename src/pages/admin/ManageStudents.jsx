@@ -1,3 +1,4 @@
+import PasswordField from '../../components/PasswordField';
 import DownloadPdfButton from '../../components/DownloadPdfButton';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Dialog, DialogTitle, DialogContent } from '@mui/material';
@@ -81,7 +82,7 @@ export default function ManageStudents() {
     <header className="management-heading"><div><span className="eyebrow">STUDENT ACCESS & MEMBERSHIP</span><h1>Student management</h1><p>Manage institutes, payment records, and time-limited access from one place.</p></div><div className="form-actions"><button className="secondary-button" disabled={busy} onClick={exportStudents}><Download size={16}/>Download PDF</button><DownloadPdfButton type="payments" params={{ institute_id: institute || 'all' }}>Payments PDF</DownloadPdfButton><button className="primary-button" onClick={()=>{setForm({...emptyForm(),institute_id:institute});setEditor({});}}><Plus size={17}/>Add student</button></div></header>
     <div className="student-summary"><span><strong>{students.length}</strong> Students</span><span><strong>{students.filter(s=>s.status==='active').length}</strong> Active</span><span><strong>{students.filter(s=>s.status==='suspended').length}</strong> Suspended</span></div>
     <section className="management-panel">
-      <div className="management-filters"><label className="search-filter"><span><Search size={14}/>Search students</span><input placeholder="Name or email" value={search} onChange={e=>setSearch(e.target.value)}/></label>
+      <div className="management-filters student-toolbar"><label className="search-filter"><span><Search size={14}/>Search students</span><input placeholder="Name or email" value={search} onChange={e=>setSearch(e.target.value)}/></label>
         {superadmin&&<label>Institute<select value={institute} onChange={e=>setInstitute(e.target.value)}><option value="">All institutes</option>{institutes.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</select></label>}
         <label>Status<select value={status} onChange={e=>setStatus(e.target.value)}><option value="">All statuses</option><option value="active">Active</option><option value="suspended">Suspended</option></select></label>
         <button className="secondary-button" onClick={()=>{setSearch('');setStatus('');if(superadmin)setInstitute('');}}><X size={15}/>Clear filters</button>
@@ -99,7 +100,7 @@ export default function ManageStudents() {
     </section>
     <Dialog open={!!editor} onClose={()=>!busy&&setEditor(null)} fullWidth maxWidth="sm"><DialogTitle>{editor?.id?'Edit student':'Add student'}</DialogTitle><DialogContent><form className="management-form dialog-form" onSubmit={save}>
       <label>Full name<input name="name" required value={form.name} onChange={change}/></label><label>Email<input name="email" type="email" required value={form.email} onChange={change}/></label>
-      <label>{editor?.id?'New password (leave blank to keep)':'Initial password'}<input name="password" type="password" autoComplete="new-password" minLength={6} required={!editor?.id} value={form.password} onChange={change}/></label>
+      <PasswordField label={editor?.id?'New password (leave blank to keep)':'Temporary password'} name="password" autoComplete="new-password" minLength={8} readOnly={!editor?.id} value={editor?.id?form.password:'password123'} onChange={change}/><p className="form-note">Temporary password: password123. Password change is required on first sign-in.</p>
       {superadmin&&<label>Institute<select name="institute_id" required disabled={!!editor?.id} value={form.institute_id} onChange={change}><option value="">Select institute</option>{institutes.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</select></label>}
       <div className="form-actions"><button className="primary-button" disabled={busy}>Save student</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>setEditor(null)}>Cancel</button></div>
     </form></DialogContent></Dialog>

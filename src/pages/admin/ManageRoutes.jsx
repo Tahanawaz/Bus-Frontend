@@ -1,3 +1,5 @@
+import InstituteField from '../../components/InstituteField';
+import PageToolbar from '../../components/PageToolbar';
 import DownloadPdfButton from '../../components/DownloadPdfButton';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -18,6 +20,8 @@ const ManageRoutes = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
+  const user = JSON.parse(localStorage.getItem('user'));
+  const [recordInstitute, setRecordInstitute] = useState(user.role === 'superadmin' ? localStorage.getItem('instituteScope') || '' : String(user.institute_id));
   const token = localStorage.getItem('token');
 
   const fetchRoutes = async () => {
@@ -46,13 +50,13 @@ const ManageRoutes = () => {
 
       if (isEditing) {
         await axios.put(`http://localhost:5001/api/routes/${editingId}`,
-          { name: routeName, stops: stopsArr, etas: etasArr },
+          { institute_id: recordInstitute, name: routeName, stops: stopsArr, etas: etasArr },
           { headers: { Authorization: `Bearer ${token}` } }
         );
         toast.success('Route updated successfully');
       } else {
         await axios.post('http://localhost:5001/api/routes',
-          { name: routeName, stops: stopsArr, etas: etasArr },
+          { institute_id: recordInstitute, name: routeName, stops: stopsArr, etas: etasArr },
           { headers: { Authorization: `Bearer ${token}` } }
         );
         toast.success('New route mapped successfully');
@@ -66,6 +70,7 @@ const ManageRoutes = () => {
   };
 
   const handleEditClick = (route) => {
+    setRecordInstitute(String(route.institute_id));
     setIsEditing(true);
     setEditingId(route.id);
     setRouteName(route.name);
@@ -106,14 +111,15 @@ const ManageRoutes = () => {
   return (
     <Box>
       <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-        <Box className="flex flex-wrap gap-4 justify-between items-center mb-8">
+        <Box className="page-heading">
           <Box>
-            <Typography variant="h4" className="text-slate-900 font-bold tracking-tight">Navigation Mapping</Typography>
+            <Typography variant="h4" className="text-slate-900 font-bold tracking-tight">Routes & stops</Typography>
             <Typography variant="body2" className="text-slate-500 mt-1">Define university routes and estimated arrival times</Typography>
           </Box>
-          <DownloadPdfButton type="routes" />
+
         </Box>
       </motion.div>
+      <PageToolbar><DownloadPdfButton type="routes" /></PageToolbar>
 
       {/* Add Route Form */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
@@ -124,7 +130,7 @@ const ManageRoutes = () => {
               {isEditing ? <Pencil size={20} className="text-purple-500" /> : <Plus size={20} className="text-purple-500" />}
               {isEditing ? 'Edit Route Map' : 'Map New Route'}
             </Typography>
-            <form onSubmit={handleAddRoute}>
+            <form onSubmit={handleAddRoute}><InstituteField value={recordInstitute} disabled={isEditing} onChange={value=>{setRecordInstitute(value);}}/>
               <Grid container spacing={3}>
                 <Grid size={{ xs: 12, md: 4 }}>
                   <TextField
@@ -193,7 +199,7 @@ const ManageRoutes = () => {
           } catch(e){}
 
           return (
-            <Grid size={{ xs: 12, md: 6 }} key={route.id}>
+            <Grid size={{ xs: 12, md: 6 }} key={route.id + '-' + (route.bus_id || 'none')}>
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -207,7 +213,7 @@ const ManageRoutes = () => {
                           <Navigation size={24} />
                         </Box>
                         <Box>
-                          <Typography variant="h6" className="text-slate-900 font-bold leading-none">{route.name}</Typography>
+                          <Typography variant="h6" className="text-slate-900 font-bold leading-none">{route.name}</Typography><Typography variant="caption" className="block text-slate-500">{route.institute_name}</Typography>
                           <Typography variant="caption" className="text-slate-500 uppercase font-bold tracking-tighter">
                             {parsedStops.length} Checkpoints
                           </Typography>

@@ -1,3 +1,6 @@
+import InstituteField from '../../components/InstituteField';
+import PasswordField from '../../components/PasswordField';
+import PageToolbar from '../../components/PageToolbar';
 import DownloadPdfButton from '../../components/DownloadPdfButton';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -6,7 +9,7 @@ import {
   InputAdornment, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Avatar, IconButton, Chip, CircularProgress
 } from '@mui/material';
-import { UserPlus, Mail, Lock, User, ShieldCheck, Trash2, Shield, Search, Pencil, X } from 'lucide-react';
+import { UserPlus, Mail, User, ShieldCheck, Trash2, Shield, Search, Pencil, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { motion } from 'framer-motion';
 
@@ -22,6 +25,8 @@ const ManageDrivers = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
+  const user = JSON.parse(localStorage.getItem('user'));
+  const [recordInstitute, setRecordInstitute] = useState(user.role === 'superadmin' ? localStorage.getItem('instituteScope') || '' : String(user.institute_id));
   const token = localStorage.getItem('token');
 
   const fetchDrivers = async () => {
@@ -48,13 +53,13 @@ const ManageDrivers = () => {
     try {
       if (isEditing) {
         await axios.put(`http://localhost:5001/api/auth/drivers/${editingId}`,
-          { name: driverName, email: driverEmail, password: driverPassword || undefined, phone: driverPhone },
+          { institute_id: recordInstitute, name: driverName, email: driverEmail, password: driverPassword || undefined, phone: driverPhone },
           { headers: { Authorization: `Bearer ${token}` } }
         );
         toast.success('Driver details updated!');
       } else {
         await axios.post('http://localhost:5001/api/auth/register-driver',
-          { name: driverName, email: driverEmail, password: driverPassword, phone: driverPhone },
+          { institute_id: recordInstitute, name: driverName, email: driverEmail, password: driverPassword, phone: driverPhone },
           { headers: { Authorization: `Bearer ${token}` } }
         );
         toast.success('Driver account created successfully!');
@@ -69,6 +74,7 @@ const ManageDrivers = () => {
   };
 
   const handleEditClick = (driver) => {
+    setRecordInstitute(String(driver.institute_id));
     setIsEditing(true);
     setEditingId(driver.id);
     setDriverName(driver.name);
@@ -108,14 +114,24 @@ const ManageDrivers = () => {
   return (
     <Box>
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-        <Box className="flex flex-wrap gap-4 justify-between items-center mb-8">
+        <Box className="page-heading">
           <Box>
-            <Typography variant="h4" className="text-slate-900 font-bold tracking-tight">Driver Personnel</Typography>
+            <Typography variant="h4" className="text-slate-900 font-bold tracking-tight">Drivers</Typography>
             <Typography variant="body2" className="text-slate-500 mt-1">Manage driver credentials and fleet access</Typography>
           </Box>
-          <DownloadPdfButton type="drivers" params={{ search: searchTerm }} />
+
         </Box>
       </motion.div>
+      <PageToolbar search={<label className="toolbar-search-label">Search drivers                  <TextField
+                    size="small"
+                    placeholder="Name or email"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '10px', width: {md: '300px'} }, '& label': { color: 'text.secondary' } }}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start"><Search size={16} className="text-slate-500" /></InputAdornment>,
+                    }}
+                  /></label>}><DownloadPdfButton type="drivers" params={{ search: searchTerm }} /></PageToolbar>
 
       <Grid container spacing={4}>
         {/* Registration Form */}
@@ -134,7 +150,7 @@ const ManageDrivers = () => {
                   </Box>
                 </Box>
 
-                <form onSubmit={handleRegisterDriver}>
+                <form onSubmit={handleRegisterDriver}><InstituteField value={recordInstitute} disabled={isEditing} onChange={value=>{setRecordInstitute(value);}}/>
                   <Grid container spacing={3}>
                     <Grid size={{ xs: 12, md: 6, lg: 3 }}>
                       <TextField
@@ -173,18 +189,8 @@ const ManageDrivers = () => {
                       />
                     </Grid>
                     <Grid size={{ xs: 12, md: 6, lg: 3 }}>
-                      <TextField
-                        label={isEditing ? "New Password (Optional)" : "Temporary Password"}
-                        type="password"
-                        fullWidth
-                        value={driverPassword}
-                        onChange={(e)=>setDriverPassword(e.target.value)}
-                        required={!isEditing}
-                        sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start"><Lock size={18} className="text-slate-500" /></InputAdornment>,
-                        }}
-                      />
+                      <PasswordField label={isEditing?'New password (optional)':'Temporary password'} value={isEditing?driverPassword:'password123'} readOnly={!isEditing} minLength={8} autoComplete="new-password" onChange={e=>setDriverPassword(e.target.value)}/>
+                      <p className="form-note">Password change required on first sign-in.</p>
                     </Grid>
                     <Grid size={{ xs: 12 }}>
                       <Box className="flex gap-3 mt-2">
@@ -222,16 +228,7 @@ const ManageDrivers = () => {
                     </Box>
                     <Typography variant="h6" className="text-slate-900 font-bold">Registered Drivers</Typography>
                   </Box>
-                  <TextField
-                    size="small"
-                    placeholder="Search drivers..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '10px', width: {md: '300px'} }, '& label': { color: 'text.secondary' } }}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start"><Search size={16} className="text-slate-500" /></InputAdornment>,
-                    }}
-                  />
+
                 </Box>
 
                 {fetching ? (
@@ -250,13 +247,13 @@ const ManageDrivers = () => {
                       </TableHead>
                       <TableBody>
                         {filteredDrivers.map((driver) => (
-                          <TableRow key={driver.id} className="hover:bg-slate-50 transition-colors group">
+                          <TableRow key={driver.id} hover className="transition-colors group">
                             <TableCell className="border-slate-200">
                               <Box className="flex items-center gap-3">
                                 <Avatar sx={{ width: 36, height: 36, bgcolor: '#3b82f6', fontWeight: 'bold' }}>
                                   {driver.name.charAt(0)}
                                 </Avatar>
-                                <Typography className="text-slate-900 font-medium">{driver.name}</Typography>
+                                <Box><Typography className="text-slate-900 font-medium">{driver.name}</Typography><Typography variant="caption" className="text-slate-500">{driver.institute_name}</Typography></Box>
                               </Box>
                             </TableCell>
                             <TableCell className="border-slate-200 text-slate-500">{driver.email}</TableCell>
@@ -278,7 +275,7 @@ const ManageDrivers = () => {
                         ))}
                         {filteredDrivers.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={4} className="text-center py-20 border-none text-slate-500 italic">
+                            <TableCell colSpan={5} className="text-center py-20 border-none text-slate-500 italic">
                               No drivers found matching your search.
                             </TableCell>
                           </TableRow>

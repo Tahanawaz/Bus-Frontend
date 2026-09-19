@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif; color: #182b49; background: #f5f7fb; font-synthesis: none; --ink: #182b49; --muted: #66758b; --blue: #2865e8; --line: #e5eaf2; }
+:root { font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #182b49; background: #f5f7fb; font-synthesis: none; --ink: #182b49; --muted: #66758b; --blue: #2865e8; --line: #e5eaf2; }
 * { box-sizing: border-box; }
 body { margin: 0; -webkit-font-smoothing: antialiased; }
 a { text-decoration: none; color: inherit; }
@@ -110,7 +110,7 @@ html[data-theme="dark"] body { background: #050508; color: #ffffff; }
 html[data-theme="dark"] .leaflet-container { background: #141414; }
 html[data-theme="dark"] ::-webkit-scrollbar-track { background: #050508; }
 html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #2d2d3a; }
-.theme-switcher { position: fixed; right: max(20px, env(safe-area-inset-right)); top: max(17px, env(safe-area-inset-top)); z-index: 9999; display: flex; gap: 4px; padding: 5px; background: #fff; border: 1px solid #dce4ef; border-radius: 15px; box-shadow: 0 5px 24px #182b4920; font-family: "Inter", "Roboto", "Helvetica", "Arial", sans-serif; }
+.theme-switcher { position: fixed; right: max(20px, env(safe-area-inset-right)); top: max(17px, env(safe-area-inset-top)); z-index: 9999; display: flex; gap: 4px; padding: 5px; background: #fff; border: 1px solid #dce4ef; border-radius: 15px; box-shadow: 0 5px 24px #182b4920; font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
 .theme-switcher button { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 83px; min-height: 38px; padding: 8px 13px; border: 0; border-radius: 10px; color: #65758b; background: transparent; font-size: 12px; font-weight: 650; }
 .theme-switcher button:hover { background: #f1f5fc; }
 .theme-switcher button[aria-pressed="true"] { color: #2865e8; background: #eaf1ff; }

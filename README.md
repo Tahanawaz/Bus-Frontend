@@ -69,3 +69,11 @@ npm run build
 ~~~
 
 Integration tests use temporary databases, not the running application's data. They cover institute permissions, driver ownership, pending registration, manual payment validation, expiry, suspension, socket isolation, PDF generation/pagination and repeatable legacy migration. Install frontend dependencies before backend tests because the socket test uses its Socket.IO client.
+
+## Account activation and institute administrators
+
+Each institute can have one administrator. Use **Change admin** on its institute card to replace that person; the prior login and sessions are revoked. Existing payments remain associated with the same institute.
+
+New student, driver and admin accounts receive the temporary password `password123` automatically. On first sign-in, the account holder must set a different password (at least 8 characters), then sign in again. Dashboard access is blocked until this step is complete. Pending or suspended students still require activation. Password changes by an administrator also require the account holder to change that password at the next sign-in.
+
+The migration preserves existing passwords and requires existing accounts, including superadmin, to change them at the next sign-in. Password fields have show/hide controls.

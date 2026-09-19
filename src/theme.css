@@ -1,5 +1,5 @@
 /* Shared appearance: only colors change between themes; content and state stay mounted. */
-:root { --app-font: "Inter", "Roboto", "Helvetica", "Arial", sans-serif; }
+:root { --app-font: "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
 body, button, input, select, textarea, .theme-switcher { font-family: var(--app-font); }
 .route-artwork text { font-family: var(--app-font); }
 

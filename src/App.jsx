@@ -14,9 +14,10 @@ export default function App() {
     <Suspense fallback={<div className="theme-loading" role="status">Loading SmartBus...</div>}>
       <SharedApp mode={mode} />
     </Suspense>
-    <div className="theme-switcher" role="group" aria-label="Color theme">
-      <button type="button" aria-pressed={mode === 'light'} onClick={() => setMode('light')} title="Use light mode"><Sun size={17} aria-hidden="true" /><span>Light</span></button>
-      <button type="button" aria-pressed={mode === 'dark'} onClick={() => setMode('dark')} title="Use dark mode"><Moon size={17} aria-hidden="true" /><span>Dark</span></button>
+    <div className="theme-switcher">
+      <button type="button" onClick={() => setMode(current => current === 'light' ? 'dark' : 'light')} aria-label={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'} title={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
+        {mode === 'light' ? <Moon size={17} aria-hidden="true" /> : <Sun size={17} aria-hidden="true" />}<span>{mode === 'light' ? 'Dark mode' : 'Light mode'}</span>
+      </button>
     </div>
   </>;
 }

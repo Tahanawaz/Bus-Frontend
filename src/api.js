@@ -9,7 +9,7 @@ const requestInterceptor = axios.interceptors.request.use(config => {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   const institute = localStorage.getItem('instituteScope');
   const detail = /\/auth\/students\/\d+/.test(config.url);
-  const excluded = detail || /\/api\/(institutes|auth\/(login|signup|me|admins))/.test(config.url);
+  const excluded = detail || /\/api\/(institutes|auth\/(login|signup|change-initial-password|me|admins))/.test(config.url);
   if (user?.role === 'superadmin' && institute && !excluded) {
     config.params = { institute_id: config.data?.institute_id || institute, ...config.params };
     if (config.data && typeof config.data === 'object' && !config.data.institute_id) config.data = { ...config.data, institute_id: institute };
@@ -18,7 +18,7 @@ const requestInterceptor = axios.interceptors.request.use(config => {
 });
 const responseInterceptor = axios.interceptors.response.use(response => response, error => {
   const own = String(error.config?.url).startsWith(API_URL + '/api/');
-  const publicAuth = /\/auth\/(login|signup)$/.test(error.config?.url || '');
+  const publicAuth = /\/auth\/(login|signup|change-initial-password)$/.test(error.config?.url || '');
   if (own && !publicAuth && localStorage.getItem('token') && (error.response?.status === 401 || error.response?.data?.code === 'ACCOUNT_SUSPENDED')) {
     sessionStorage.setItem('loginNotice', error.response?.data?.error || 'Please sign in again.');
     localStorage.removeItem('token'); localStorage.removeItem('user'); localStorage.removeItem('instituteScope');

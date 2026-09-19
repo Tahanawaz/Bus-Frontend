@@ -1,10 +1,12 @@
+import InstituteField from '../../components/InstituteField';
+import PageToolbar from '../../components/PageToolbar';
 import DownloadPdfButton from '../../components/DownloadPdfButton';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box, Typography, Button, TextField, Grid, Card, CardContent,
   IconButton, Chip, Select, MenuItem, FormControl, InputLabel,
-  CircularProgress, Avatar, Tooltip, InputAdornment
+  CircularProgress, Avatar, Tooltip, InputAdornment, Dialog, DialogTitle, DialogContent
 } from '@mui/material';
 import { Trash2, Plus, Bus, User, MapPin, AlertCircle, Navigation, Pencil, X, Clock } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -21,16 +23,19 @@ const ManageBuses = () => {
   const [selectedDriver, setSelectedDriver] = useState('');
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
+  const user = JSON.parse(localStorage.getItem('user'));
+  const [recordInstitute, setRecordInstitute] = useState(user.role === 'superadmin' ? localStorage.getItem('instituteScope') || '' : String(user.institute_id));
   const token = localStorage.getItem('token');
 
   const fetchData = async () => {
     try {
       const [busRes, driverRes, routeRes] = await Promise.all([
         axios.get('http://localhost:5001/api/buses', { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get('http://localhost:5001/api/auth/drivers', { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get('http://localhost:5001/api/routes', { headers: { Authorization: `Bearer ${token}` } })
+        axios.get('http://localhost:5001/api/auth/drivers', { params: user.role==='superadmin'?{institute_id:'all'}:{}, headers: { Authorization: `Bearer ${token}` } }),
+        axios.get('http://localhost:5001/api/routes', { params: user.role==='superadmin'?{institute_id:'all'}:{}, headers: { Authorization: `Bearer ${token}` } })
       ]);
 
       setBuses(busRes.data);
@@ -55,8 +60,10 @@ const ManageBuses = () => {
       toast.warning('Please select a route');
       return;
     }
+    setSaving(true);
     try {
       const busData = {
+        institute_id: recordInstitute,
         name: busName,
         number_plate: busPlate,
         route: busRoute,
@@ -78,15 +85,16 @@ const ManageBuses = () => {
     } catch (err) {
       if (err.response?.status === 409 && err.response?.data?.code === 'DRIVER_ASSIGNED') {
         if (window.confirm(err.response.data.message)) {
-          handleAddBus(null, true);
+          await handleAddBus(null, true);
         }
       } else {
         toast.error(err.response?.data?.error || 'Error saving bus');
       }
-    }
+    } finally { setSaving(false); }
   };
 
   const handleEditClick = (bus) => {
+    setRecordInstitute(String(bus.institute_id));
     setIsEditing(true);
     setEditingId(bus.id);
     setBusName(bus.name);
@@ -94,12 +102,13 @@ const ManageBuses = () => {
     setBusRoute(bus.route);
     setDepartureTime(bus.departure_time || '');
     setSelectedDriver(bus.driver_id || '');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
   };
 
   const resetForm = () => {
     setIsEditing(false);
     setEditingId(null);
+    setRecordInstitute(user.role === 'superadmin' ? localStorage.getItem('instituteScope') || '' : String(user.institute_id));
     setBusName('');
     setBusPlate('');
     setBusRoute('');
@@ -131,29 +140,9 @@ const ManageBuses = () => {
     </Box>
   );
 
-  return (
-    <Box>
-      <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-        <Box className="flex flex-wrap gap-4 justify-between items-center mb-8">
-          <Box>
-            <Typography variant="h4" className="text-slate-900 font-bold tracking-tight">Fleet Management</Typography>
-            <Typography variant="body2" className="text-slate-500 mt-1">Add, track and assign drivers to buses</Typography>
-          </Box>
-          <DownloadPdfButton type="fleet" />
-        </Box>
-      </motion.div>
-
-      {/* Add Bus Form */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <Card className="bg-white border border-slate-200 rounded-3xl mb-10 overflow-visible">
-          <CardContent className="p-8">
-            <Typography variant="h6" className="text-slate-900 font-bold mb-6 flex items-center gap-2">
-              {isEditing ? <Pencil size={20} className="text-blue-500" /> : <Plus size={20} className="text-blue-500" />}
-              {isEditing ? 'Update Bus Details' : 'Register New Bus'}
-            </Typography>
-            <form onSubmit={handleAddBus}>
+  const busForm = (<form onSubmit={handleAddBus}><InstituteField value={recordInstitute} disabled={isEditing} onChange={value=>{setRecordInstitute(value);setBusRoute('');setSelectedDriver('');}}/>
               <Grid container spacing={3} alignItems="flex-end">
-                <Grid size={{ xs: 12, sm: 6, md: 2.5 }}>
+                <Grid size={{ xs: 12, sm: 6, md: isEditing ? 6 : 2.5 }}>
                   <TextField
                     label="Bus Name"
                     fullWidth
@@ -164,7 +153,7 @@ const ManageBuses = () => {
                     sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                <Grid size={{ xs: 12, sm: 6, md: isEditing ? 6 : 2 }}>
                   <TextField
                     label="Plate Number"
                     fullWidth
@@ -175,7 +164,7 @@ const ManageBuses = () => {
                     sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                <Grid size={{ xs: 12, sm: 6, md: isEditing ? 6 : 2 }}>
                   <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}>
                     <InputLabel>Select Route</InputLabel>
                     <Select
@@ -185,7 +174,7 @@ const ManageBuses = () => {
                       onChange={(e) => setBusRoute(e.target.value)}
                     >
                       <MenuItem value="" disabled><em>Select a route</em></MenuItem>
-                      {routes.map(route => (
+                      {routes.filter(route => route.institute_id === Number(recordInstitute)).map(route => (
                         <MenuItem key={route.id} value={route.name}>
                           <Box className="flex items-center gap-2">
                             <Navigation size={14} className="text-purple-500" />
@@ -197,7 +186,7 @@ const ManageBuses = () => {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                <Grid size={{ xs: 12, sm: 6, md: isEditing ? 6 : 2 }}>
                   <TextField
                     label="Departure Time"
                     fullWidth
@@ -208,7 +197,7 @@ const ManageBuses = () => {
                     InputProps={{ startAdornment: <InputAdornment position="start"><Clock size={18} className="text-blue-500" /></InputAdornment> }}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                <Grid size={{ xs: 12, sm: 6, md: isEditing ? 6 : 2 }}>
                   <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}>
                     <InputLabel>Assign Driver</InputLabel>
                     <Select
@@ -217,34 +206,62 @@ const ManageBuses = () => {
                       onChange={(e) => setSelectedDriver(e.target.value)}
                     >
                       <MenuItem value=""><em>None</em></MenuItem>
-                      {drivers.map(driver => (
+                      {drivers.filter(driver => driver.institute_id === Number(recordInstitute)).map(driver => (
                         <MenuItem key={driver.id} value={driver.id}>{driver.name}</MenuItem>
                       ))}
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 1.5 }}>
+                <Grid size={{ xs: 12, sm: 6, md: isEditing ? 12 : 1.5 }}>
                   <Box className="flex gap-2">
                     <Button
                       type="submit"
+                      disabled={saving}
                       fullWidth
                       variant="contained"
                       className="bg-blue-600 hover:bg-blue-700 h-[56px] rounded-xl font-bold transition-all shadow-lg shadow-blue-900/20"
                     >
-                      {isEditing ? 'Update' : 'Add Bus'}
+                      {saving ? 'Saving...' : isEditing ? 'Save changes' : 'Add Bus'}
                     </Button>
                     {isEditing && (
-                      <IconButton onClick={resetForm} className="bg-slate-50 hover:bg-blue-50 text-slate-500 h-[56px] w-[56px] rounded-xl">
+                      <IconButton aria-label="Cancel editing" disabled={saving} onClick={resetForm} className="bg-slate-50 hover:bg-blue-50 text-slate-500 h-[56px] w-[56px] rounded-xl">
                         <X size={20} />
                       </IconButton>
                     )}
                   </Box>
                 </Grid>
               </Grid>
-            </form>
+            </form>);
+
+  return (
+    <Box>
+      <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+        <Box className="page-heading">
+          <Box>
+            <Typography variant="h4" className="text-slate-900 font-bold tracking-tight">Fleet Management</Typography>
+            <Typography variant="body2" className="text-slate-500 mt-1">Add, track and assign drivers to buses</Typography>
+          </Box>
+
+        </Box>
+      </motion.div>
+      <PageToolbar><DownloadPdfButton type="fleet" /></PageToolbar>
+
+      {/* Add Bus Form */}
+      {!isEditing && <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <Card className="bg-white border border-slate-200 rounded-3xl mb-10 overflow-visible">
+          <CardContent className="p-8">
+            <Typography variant="h6" className="text-slate-900 font-bold mb-6 flex items-center gap-2">
+              {isEditing ? <Pencil size={20} className="text-blue-500" /> : <Plus size={20} className="text-blue-500" />}
+              {isEditing ? 'Update Bus Details' : 'Register New Bus'}
+            </Typography>
+            {busForm}
           </CardContent>
         </Card>
-      </motion.div>
+      </motion.div>}
+      <Dialog open={isEditing} onClose={()=>!saving&&resetForm()} fullWidth maxWidth="md" aria-labelledby="edit-bus-title">
+        <DialogTitle id="edit-bus-title">Edit bus</DialogTitle>
+        <DialogContent><div className="dialog-form">{isEditing && busForm}</div></DialogContent>
+      </Dialog>
 
       {/* Bus Grid */}
       <Grid container spacing={4}>
@@ -265,7 +282,7 @@ const ManageBuses = () => {
                       </Box>
                       <Box>
                         <Typography variant="h6" className="text-slate-900 font-bold leading-none">{bus.name}</Typography>
-                        <Typography variant="caption" className="text-slate-500 font-mono tracking-widest">{bus.number_plate}</Typography>
+                        <Typography variant="caption" className="text-slate-500 font-mono tracking-widest">{bus.number_plate}</Typography><Typography variant="caption" className="block text-slate-500">{bus.institute_name}</Typography>
                       </Box>
                     </Box>
                     <Box className="flex gap-1">
