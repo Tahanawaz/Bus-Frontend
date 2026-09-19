@@ -15,6 +15,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid #82aaff; outline-offs
 .brand { display: inline-flex; gap: 10px; align-items: center; font-size: 23px; font-weight: 800; letter-spacing: -.8px; color: var(--ink); flex-shrink: 0; }
 .brand-mark { width: 43px; height: 43px; border-radius: 13px; color: white; background: var(--blue); display: grid; place-items: center; box-shadow: 0 5px 12px #2865e824; overflow:hidden; }
 .brand-mark img { width:100%; height:100%; object-fit:contain; }
+.brand-logo { display:block; width:88px; height:72px; object-fit:contain; border-radius:12px; }
 .brand-accent { color: var(--blue); }
 .brand small { display: block; font-size: 8px; letter-spacing: 1.8px; font-weight: 700; margin-top: 1px; color: #7a879a; }
 .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 2px; color: var(--blue); }
@@ -141,6 +142,7 @@ html[data-theme="dark"] .theme-loading { background: #0a0a0a; color: #a0a0a0; }
   .landing-nav > .brand { margin-right: 100px; }
   .landing-links { width: 100%; justify-content: flex-end; }
   .dashboard-topbar { padding-right: 115px; }
+  .brand-logo { width:76px; height:62px; }
 }
 
 /* Refined authentication workspace */
@@ -178,7 +180,8 @@ html[data-theme="dark"] .theme-loading { background: #0a0a0a; color: #a0a0a0; }
 .auth-form-card :is(.auth-input-wrap input,.auth-input-wrap select,.has-leading-icon input) { height:50px; padding-left:43px; border:1px solid #dce3ed; border-radius:11px; background:#f8fafc; }
 .auth-form-card select { appearance:auto; color:var(--ink); font:inherit; font-size:12px; }
 .auth-form-card .password-input-wrap > button { position:absolute; z-index:2; right:6px; top:5px; width:39px; height:40px; border:0; background:transparent; color:#8290a3; }
-.auth-form-card .has-leading-icon input { padding-right:48px; }
+.auth-form-card .has-leading-icon input { padding:0 48px 0 43px !important; line-height:50px; }
+.auth-form-card .password-leading-icon { top:50%; transform:translateY(-50%); }
 .auth-form-card .form-note { display:flex; align-items:flex-start; gap:9px; margin:0; padding:10px 12px; border:1px solid #dce8fa; }
 .auth-form-card .form-note > svg { flex:0 0 auto; margin-top:1px; color:#288168; }
 .auth-submit { min-height:51px; border-radius:11px; }

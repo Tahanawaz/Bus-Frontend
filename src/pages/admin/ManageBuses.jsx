@@ -1,13 +1,14 @@
 import InstituteField from '../../components/InstituteField';
 import PageToolbar from '../../components/PageToolbar';
 import DownloadPdfButton from '../../components/DownloadPdfButton';
+import DepartureTimePicker from '../../components/DepartureTimePicker';
 import { formatTime, normalizeTime } from '../../transportUtils';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box, Typography, Button, TextField, Grid, Card, CardContent,
   IconButton, Chip, Select, MenuItem, FormControl, InputLabel,
-  CircularProgress, Avatar, InputAdornment, Dialog, DialogTitle, DialogContent
+  CircularProgress, Avatar, Dialog, DialogTitle, DialogContent
 } from '@mui/material';
 import { Trash2, Plus, Bus, User, AlertCircle, Navigation, Pencil, Clock } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -194,17 +195,8 @@ const ManageBuses = () => {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label="Departure Time"
-                    type="time"
-                    fullWidth
-                    value={departureTime}
-                    onChange={(e)=>setDepartureTime(e.target.value)}
-                    slotProps={{ inputLabel: { shrink: true }, htmlInput: { step: 300 } }}
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}
-                    InputProps={{ startAdornment: <InputAdornment position="start"><Clock size={18} className="text-blue-500" /></InputAdornment> }}
-                  />
+                <Grid size={{ xs: 12 }}>
+                  <DepartureTimePicker value={departureTime} onChange={setDepartureTime}/>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}>
