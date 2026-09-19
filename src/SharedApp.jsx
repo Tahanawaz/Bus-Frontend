@@ -31,6 +31,7 @@ import BusList from './pages/student/BusList';
 
 // Driver Pages
 import DriverDashboard from './pages/driver/DriverDashboard';
+import Profile from './pages/Profile';
 
 function PrivateRoute({ children, roleRequired }) {
   const user = JSON.parse(localStorage.getItem('user'));
@@ -54,6 +55,7 @@ function SharedApp({ mode }) {
           <Route path="/student" element={<PrivateRoute roleRequired="student"><DashboardLayout role="student" /></PrivateRoute>}>
             <Route index element={<StudentDashboard />} />
             <Route path="buses" element={<BusList />} />
+            <Route path="profile" element={<Profile />} />
           </Route>
           
           <Route path="/admin" element={<PrivateRoute roleRequired="admin"><DashboardLayout role="admin" /></PrivateRoute>}>
@@ -64,10 +66,12 @@ function SharedApp({ mode }) {
             <Route path="routes" element={<ManageRoutes />} />
             <Route path="reports" element={<Navigate to="/admin" replace />} />
             <Route path="institutes" element={<PrivateRoute roleRequired="superadmin"><Institutes /></PrivateRoute>} />
+            <Route path="profile" element={<Profile />} />
           </Route>
           
           <Route path="/driver" element={<PrivateRoute roleRequired="driver"><DashboardLayout role="driver" /></PrivateRoute>}>
             <Route index element={<DriverDashboard />} />
+            <Route path="profile" element={<Profile />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" />} />

@@ -140,3 +140,17 @@ html[data-theme="dark"] .metric-watermark { opacity: .065; }
 @media(prefers-reduced-motion: reduce) {
   .overview-stats .metric-card, .metric-value, .metric-skeleton, .metric-icon, .metric-footer > svg, .metric-watermark { animation: none; transition: none; }
 }
+
+html[data-theme="dark"] .auth-page { background:#090909; }
+html[data-theme="dark"] .auth-story { background:linear-gradient(145deg,#11131a,#111827 58%,#10201c); border-color:#292d38; }
+html[data-theme="dark"] .auth-trust-pill { background:#171923cc; border-color:#303544; color:#abb5c7; }
+html[data-theme="dark"] .auth-route-card { background:#171923ed; border-color:#343949; box-shadow:0 12px 30px #0004; }
+html[data-theme="dark"] .auth-route-card > span { background:#1c2b48; }
+html[data-theme="dark"] .auth-form-panel { background:#0a0a0a; }
+html[data-theme="dark"] .auth-form-card { background:#141414; border-color:#2b2b36; box-shadow:0 24px 65px #0003; }
+html[data-theme="dark"] .auth-mode-switch { background:#0d0d11; }
+html[data-theme="dark"] .auth-mode-switch a.active { background:#20202b; color:#93b9ff; box-shadow:none; }
+html[data-theme="dark"] .auth-card-icon { background:#1c2b48; border-color:#2a4169; color:#93b9ff; }
+html[data-theme="dark"] .auth-form-card :is(.auth-input-wrap input,.auth-input-wrap select,.has-leading-icon input) { background:#191922; border-color:#363644; color:#fff; }
+html[data-theme="dark"] .auth-form-card .form-note { border-color:#273955; }
+@media(max-width:800px) { html[data-theme="dark"] .auth-form-panel { background:linear-gradient(180deg,#101116,#0a0a0a 38%); } }

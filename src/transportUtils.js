@@ -8,3 +8,19 @@ export function coordinates(bus) {
   return Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180?[lat,lng]:null;
 }
 export const formatSeconds = value => Math.floor(value/60)+':'+String(value%60).padStart(2,'0');
+export function normalizeTime(value) {
+  const text=String(value||'').trim();
+  const twentyFour=text.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if(twentyFour)return String(Number(twentyFour[1])).padStart(2,'0')+':'+twentyFour[2];
+  const twelve=text.match(/^(1[0-2]|0?[1-9]):([0-5]\d)\s*(AM|PM)$/i);
+  if(!twelve)return '';
+  let hour=Number(twelve[1])%12;
+  if(twelve[3].toUpperCase()==='PM')hour+=12;
+  return String(hour).padStart(2,'0')+':'+twelve[2];
+}
+export function formatTime(value) {
+  const time=normalizeTime(value);
+  if(!time)return value||'Not set';
+  const [hour,minute]=time.split(':').map(Number);
+  return String(hour%12||12).padStart(2,'0')+':'+String(minute).padStart(2,'0')+' '+(hour<12?'AM':'PM');
+}

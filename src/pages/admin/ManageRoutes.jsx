@@ -5,11 +5,20 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box, Typography, Button, TextField, Grid, Card, CardContent,
-  IconButton, Chip, InputAdornment, Divider, Tooltip, Avatar
+  IconButton, Chip, InputAdornment, Dialog, DialogTitle, DialogContent, CircularProgress
 } from '@mui/material';
-import { Plus, Trash2, MapPin, Clock, Bus, Navigation, ListOrdered, Pencil, X } from 'lucide-react';
+import { Plus, Trash2, MapPin, Clock, Bus, Navigation, ListOrdered, Pencil } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { motion } from 'framer-motion';
+
+const parseList = (value) => {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
 
 const ManageRoutes = () => {
   const [routes, setRoutes] = useState([]);
@@ -19,6 +28,8 @@ const ManageRoutes = () => {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const user = JSON.parse(localStorage.getItem('user'));
   const [recordInstitute, setRecordInstitute] = useState(user.role === 'superadmin' ? localStorage.getItem('instituteScope') || '' : String(user.institute_id));
@@ -44,6 +55,7 @@ const ManageRoutes = () => {
 
   const handleAddRoute = async (e) => {
     e.preventDefault();
+    setSaving(true);
     try {
       const stopsArr = stops.split(',').map(s => s.trim());
       const etasArr = etas.split(',').map(e => e.trim());
@@ -66,6 +78,8 @@ const ManageRoutes = () => {
       fetchRoutes();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Error saving route');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -75,16 +89,12 @@ const ManageRoutes = () => {
     setEditingId(route.id);
     setRouteName(route.name);
 
-    let parsedStops = [];
-    let parsedEtas = [];
-    try {
-      parsedStops = JSON.parse(route.stops);
-      parsedEtas = JSON.parse(route.etas);
-    } catch(e) {}
+    const parsedStops = parseList(route.stops);
+    const parsedEtas = parseList(route.etas);
 
     setStops(parsedStops.join(', '));
     setEtas(parsedEtas.join(', '));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setFormOpen(true);
   };
 
   const resetForm = () => {
@@ -93,6 +103,13 @@ const ManageRoutes = () => {
     setRouteName('');
     setStops('');
     setEtas('');
+    setRecordInstitute(user.role === 'superadmin' ? localStorage.getItem('instituteScope') || '' : String(user.institute_id));
+    setFormOpen(false);
+  };
+
+  const openAddDialog = () => {
+    resetForm();
+    setFormOpen(true);
   };
 
   const handleDeleteRoute = async (id) => {
@@ -108,6 +125,12 @@ const ManageRoutes = () => {
     }
   };
 
+  if (loading) return (
+    <Box className="h-[60vh] flex items-center justify-center">
+      <CircularProgress />
+    </Box>
+  );
+
   return (
     <Box>
       <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
@@ -119,84 +142,35 @@ const ManageRoutes = () => {
 
         </Box>
       </motion.div>
-      <PageToolbar><DownloadPdfButton type="routes" /></PageToolbar>
+      <PageToolbar>
+        <DownloadPdfButton type="routes" />
+        <button type="button" className="primary-button" onClick={openAddDialog}><Plus size={18} /> Add route</button>
+      </PageToolbar>
 
-      {/* Add Route Form */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <Card className="bg-white border border-slate-200 rounded-3xl mb-10 overflow-hidden">
-          <Box className="h-2 bg-purple-600" />
-          <CardContent className="p-8">
-            <Typography variant="h6" className="text-slate-900 font-bold mb-6 flex items-center gap-2">
-              {isEditing ? <Pencil size={20} className="text-purple-500" /> : <Plus size={20} className="text-purple-500" />}
-              {isEditing ? 'Edit Route Map' : 'Map New Route'}
-            </Typography>
-            <form onSubmit={handleAddRoute}><InstituteField value={recordInstitute} disabled={isEditing} onChange={value=>{setRecordInstitute(value);}}/>
-              <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <TextField
-                    label="Route Title"
-                    fullWidth
-                    value={routeName}
-                    onChange={(e)=>setRouteName(e.target.value)}
-                    required
-                    placeholder="e.g. Blue Line - Sector A"
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}
-                    InputProps={{ startAdornment: <InputAdornment position="start"><Navigation size={18} className="text-purple-500" /></InputAdornment> }}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <TextField
-                    label="Stops (Comma Separated)"
-                    fullWidth
-                    value={stops}
-                    onChange={(e)=>setStops(e.target.value)}
-                    required
-                    placeholder="Main Gate, Library, Hostel"
-                    sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}
-                    InputProps={{ startAdornment: <InputAdornment position="start"><MapPin size={18} className="text-purple-500" /></InputAdornment> }}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <Box className="flex gap-3">
-                    <TextField
-                      label="ETAs (Comma Separated)"
-                      fullWidth
-                      value={etas}
-                      onChange={(e)=>setEtas(e.target.value)}
-                      required
-                      placeholder="5m, 10m, 15m"
-                      sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}
-                      InputProps={{ startAdornment: <InputAdornment position="start"><Clock size={18} className="text-purple-500" /></InputAdornment> }}
-                    />
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      className="bg-purple-600 hover:bg-purple-700 rounded-xl px-8 font-bold shadow-lg shadow-purple-900/20"
-                    >
-                      {isEditing ? 'Update' : 'Save'}
-                    </Button>
-                    {isEditing && (
-                      <IconButton onClick={resetForm} className="bg-slate-50 hover:bg-blue-50 text-slate-500 rounded-xl px-4">
-                        <X size={20} />
-                      </IconButton>
-                    )}
-                  </Box>
-                </Grid>
-              </Grid>
-            </form>
-          </CardContent>
-        </Card>
-      </motion.div>
+      <Dialog open={formOpen} onClose={()=>!saving&&resetForm()} fullWidth maxWidth="sm" aria-labelledby="route-form-title">
+        <DialogTitle id="route-form-title">{isEditing ? 'Edit route' : 'Add route'}</DialogTitle>
+        <DialogContent>
+          <form className="dialog-form" onSubmit={handleAddRoute}>
+            <InstituteField value={recordInstitute} disabled={isEditing} onChange={setRecordInstitute}/>
+            <TextField label="Route title" fullWidth value={routeName} onChange={(e)=>setRouteName(e.target.value)} required placeholder="e.g. Blue Line - Sector A"
+              InputProps={{ startAdornment: <InputAdornment position="start"><Navigation size={18} /></InputAdornment> }} />
+            <TextField label="Stops (comma separated)" fullWidth value={stops} onChange={(e)=>setStops(e.target.value)} required placeholder="Main Gate, Library, Hostel"
+              InputProps={{ startAdornment: <InputAdornment position="start"><MapPin size={18} /></InputAdornment> }} />
+            <TextField label="ETAs (comma separated)" fullWidth value={etas} onChange={(e)=>setEtas(e.target.value)} required placeholder="5m, 10m, 15m"
+              InputProps={{ startAdornment: <InputAdornment position="start"><Clock size={18} /></InputAdornment> }} />
+            <Box className="form-actions">
+              <Button variant="outlined" disabled={saving} onClick={resetForm}>Cancel</Button>
+              <Button type="submit" variant="contained" disabled={saving}>{saving ? 'Saving...' : isEditing ? 'Save changes' : 'Add route'}</Button>
+            </Box>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Routes Grid */}
       <Grid container spacing={4}>
         {routes.map((route, idx) => {
-          let parsedStops = [];
-          let parsedEtas = [];
-          try {
-            parsedStops = JSON.parse(route.stops);
-            parsedEtas = JSON.parse(route.etas);
-          } catch(e){}
+          const parsedStops = parseList(route.stops);
+          const parsedEtas = parseList(route.etas);
 
           return (
             <Grid size={{ xs: 12, md: 6 }} key={route.id + '-' + (route.bus_id || 'none')}>

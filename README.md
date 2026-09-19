@@ -20,6 +20,17 @@ Open http://localhost:5173. The API runs on http://localhost:5001.
 For another API host, set VITE_API_URL in the frontend environment (restart Vite).
 Backend settings: PORT, DB_PATH, CLIENT_ORIGIN and optional JWT_SECRET.
 
+The live map uses Google Maps. Put the browser-restricted key in `Bus-Frontend/.env.local`:
+
+~~~env
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key
+VITE_MAP_PROVIDER=google
+~~~
+
+Enable **Maps JavaScript API** in Google Cloud. Restrict the key to your production domain and local development referrers. Bus coordinates still come from the driver's device GPS; Google Maps displays those live coordinates and map data.
+
+Google Maps requires an active billing account. For local testing without Google billing, set `VITE_MAP_PROVIDER=osm`; the same live driver GPS coordinates will be displayed using OpenStreetMap/CARTO instead.
+
 ## Existing local account
 
 - Super admin: admin@smartbus.com / password123

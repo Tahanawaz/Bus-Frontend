@@ -1,14 +1,15 @@
 import InstituteField from '../../components/InstituteField';
 import PageToolbar from '../../components/PageToolbar';
 import DownloadPdfButton from '../../components/DownloadPdfButton';
+import { formatTime, normalizeTime } from '../../transportUtils';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box, Typography, Button, TextField, Grid, Card, CardContent,
   IconButton, Chip, Select, MenuItem, FormControl, InputLabel,
-  CircularProgress, Avatar, Tooltip, InputAdornment, Dialog, DialogTitle, DialogContent
+  CircularProgress, Avatar, InputAdornment, Dialog, DialogTitle, DialogContent
 } from '@mui/material';
-import { Trash2, Plus, Bus, User, MapPin, AlertCircle, Navigation, Pencil, X, Clock } from 'lucide-react';
+import { Trash2, Plus, Bus, User, AlertCircle, Navigation, Pencil, Clock } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { motion } from 'framer-motion';
 
@@ -25,6 +26,7 @@ const ManageBuses = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [formOpen, setFormOpen] = useState(false);
 
   const user = JSON.parse(localStorage.getItem('user'));
   const [recordInstitute, setRecordInstitute] = useState(user.role === 'superadmin' ? localStorage.getItem('instituteScope') || '' : String(user.institute_id));
@@ -100,9 +102,9 @@ const ManageBuses = () => {
     setBusName(bus.name);
     setBusPlate(bus.number_plate);
     setBusRoute(bus.route);
-    setDepartureTime(bus.departure_time || '');
+    setDepartureTime(normalizeTime(bus.departure_time));
     setSelectedDriver(bus.driver_id || '');
-
+    setFormOpen(true);
   };
 
   const resetForm = () => {
@@ -114,6 +116,12 @@ const ManageBuses = () => {
     setBusRoute('');
     setDepartureTime('');
     setSelectedDriver('');
+    setFormOpen(false);
+  };
+
+  const openAddDialog = () => {
+    resetForm();
+    setFormOpen(true);
   };
 
   const handleDeleteBus = async (id) => {
@@ -142,7 +150,7 @@ const ManageBuses = () => {
 
   const busForm = (<form onSubmit={handleAddBus}><InstituteField value={recordInstitute} disabled={isEditing} onChange={value=>{setRecordInstitute(value);setBusRoute('');setSelectedDriver('');}}/>
               <Grid container spacing={3} alignItems="flex-end">
-                <Grid size={{ xs: 12, sm: 6, md: isEditing ? 6 : 2.5 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     label="Bus Name"
                     fullWidth
@@ -153,7 +161,7 @@ const ManageBuses = () => {
                     sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: isEditing ? 6 : 2 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     label="Plate Number"
                     fullWidth
@@ -164,7 +172,7 @@ const ManageBuses = () => {
                     sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: isEditing ? 6 : 2 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}>
                     <InputLabel>Select Route</InputLabel>
                     <Select
@@ -186,18 +194,19 @@ const ManageBuses = () => {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: isEditing ? 6 : 2 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     label="Departure Time"
+                    type="time"
                     fullWidth
                     value={departureTime}
                     onChange={(e)=>setDepartureTime(e.target.value)}
-                    placeholder="e.g. 08:30 AM"
+                    slotProps={{ inputLabel: { shrink: true }, htmlInput: { step: 300 } }}
                     sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}
                     InputProps={{ startAdornment: <InputAdornment position="start"><Clock size={18} className="text-blue-500" /></InputAdornment> }}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: isEditing ? 6 : 2 }}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { color: 'text.primary', borderRadius: '12px' }, '& label': { color: 'text.secondary' } }}>
                     <InputLabel>Assign Driver</InputLabel>
                     <Select
@@ -212,7 +221,7 @@ const ManageBuses = () => {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: isEditing ? 12 : 1.5 }}>
+                <Grid size={{ xs: 12 }}>
                   <Box className="flex gap-2">
                     <Button
                       type="submit"
@@ -223,11 +232,7 @@ const ManageBuses = () => {
                     >
                       {saving ? 'Saving...' : isEditing ? 'Save changes' : 'Add Bus'}
                     </Button>
-                    {isEditing && (
-                      <IconButton aria-label="Cancel editing" disabled={saving} onClick={resetForm} className="bg-slate-50 hover:bg-blue-50 text-slate-500 h-[56px] w-[56px] rounded-xl">
-                        <X size={20} />
-                      </IconButton>
-                    )}
+                    <Button disabled={saving} onClick={resetForm} variant="outlined" className="h-[56px] rounded-xl px-8">Cancel</Button>
                   </Box>
                 </Grid>
               </Grid>
@@ -244,23 +249,14 @@ const ManageBuses = () => {
 
         </Box>
       </motion.div>
-      <PageToolbar><DownloadPdfButton type="fleet" /></PageToolbar>
+      <PageToolbar>
+        <DownloadPdfButton type="fleet" />
+        <button type="button" className="primary-button" onClick={openAddDialog}><Plus size={18} /> Add bus</button>
+      </PageToolbar>
 
-      {/* Add Bus Form */}
-      {!isEditing && <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <Card className="bg-white border border-slate-200 rounded-3xl mb-10 overflow-visible">
-          <CardContent className="p-8">
-            <Typography variant="h6" className="text-slate-900 font-bold mb-6 flex items-center gap-2">
-              {isEditing ? <Pencil size={20} className="text-blue-500" /> : <Plus size={20} className="text-blue-500" />}
-              {isEditing ? 'Update Bus Details' : 'Register New Bus'}
-            </Typography>
-            {busForm}
-          </CardContent>
-        </Card>
-      </motion.div>}
-      <Dialog open={isEditing} onClose={()=>!saving&&resetForm()} fullWidth maxWidth="md" aria-labelledby="edit-bus-title">
-        <DialogTitle id="edit-bus-title">Edit bus</DialogTitle>
-        <DialogContent><div className="dialog-form">{isEditing && busForm}</div></DialogContent>
+      <Dialog open={formOpen} onClose={()=>!saving&&resetForm()} fullWidth maxWidth="md" aria-labelledby="bus-form-title">
+        <DialogTitle id="bus-form-title">{isEditing ? 'Edit bus' : 'Add bus'}</DialogTitle>
+        <DialogContent><div className="dialog-form">{formOpen && busForm}</div></DialogContent>
       </Dialog>
 
       {/* Bus Grid */}
@@ -303,7 +299,7 @@ const ManageBuses = () => {
 
                     <Box className="flex items-center gap-3">
                       <Clock size={16} className="text-blue-500" />
-                      <Typography variant="body2" className="text-slate-600 font-medium">Departure: {bus.departure_time || 'Not set'}</Typography>
+                      <Typography variant="body2" className="text-slate-600 font-medium">Departure: {formatTime(bus.departure_time)}</Typography>
                     </Box>
 
                     <Box className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
