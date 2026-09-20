@@ -52,10 +52,12 @@ function LeafletViewport({ position, buses, fitAll }) {
 }
 
 function OpenStreetMap({ buses, onSelect, position, selected, theme, fitAll }) {
+  const configuredTileUrl = import.meta.env.VITE_OSM_TILE_URL;
+  const tileUrl = configuredTileUrl || ('https://{s}.basemaps.cartocdn.com/' + (theme.palette.mode === 'dark' ? 'dark_all' : 'light_all') + '/{z}/{x}/{y}{r}.png');
   return <MapContainer center={[position?.lat || DEFAULT_CENTER.lat, position?.lng || DEFAULT_CENTER.lng]} zoom={position ? 15 : 12} style={mapContainerStyle}>
     <LeafletViewport position={position} buses={buses} fitAll={fitAll}/>
     <TileLayer
-      url={'https://{s}.basemaps.cartocdn.com/' + (theme.palette.mode === 'dark' ? 'dark_all' : 'light_all') + '/{z}/{x}/{y}{r}.png'}
+      url={tileUrl}
       attribution='&copy; OpenStreetMap contributors &copy; CARTO'
     />
     {selected?.history?.length > 1 && <Polyline positions={selected.history} color="#2865e8" weight={5}/>}
