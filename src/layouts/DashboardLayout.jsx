@@ -4,7 +4,7 @@ import { Map, Bus, Users, Route, LayoutDashboard, Menu, LogOut, X, ArrowUpRight,
 import Brand from '../components/Brand';
 import ProfileAvatar from '../components/ProfileAvatar';
 const menus = {
-  admin: [['Overview', LayoutDashboard, '/admin'], ['Bus fleet', Bus, '/admin/buses'], ['Drivers', Users, '/admin/drivers'], ['Students', GraduationCap, '/admin/students'], ['Routes & stops', Route, '/admin/routes']],
+  admin: [['Overview', LayoutDashboard, '/admin'], ['Map view', Map, '/admin/map'], ['Bus fleet', Bus, '/admin/buses'], ['Drivers', Users, '/admin/drivers'], ['Students', GraduationCap, '/admin/students'], ['Routes & stops', Route, '/admin/routes']],
   student: [['Live tracking', Map, '/student'], ['Routes & schedules', Route, '/student/buses']],
   driver: [['My journey', Bus, '/driver']]
 };
