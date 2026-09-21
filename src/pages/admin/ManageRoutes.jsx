@@ -1,6 +1,7 @@
 import InstituteField from '../../components/InstituteField';
 import PageToolbar from '../../components/PageToolbar';
 import DownloadPdfButton from '../../components/DownloadPdfButton';
+import RouteStopPicker from '../../components/RouteStopPicker';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
@@ -25,6 +26,7 @@ const ManageRoutes = () => {
   const [routeName, setRouteName] = useState('');
   const [stops, setStops] = useState('');
   const [etas, setEtas] = useState('');
+  const [stopCoordinates, setStopCoordinates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -59,25 +61,33 @@ const ManageRoutes = () => {
     try {
       const stopsArr = stops.split(',').map(s => s.trim());
       const etasArr = etas.split(',').map(e => e.trim());
+      if (stopCoordinates.length !== stopsArr.length || stopCoordinates.some(point => !point || !Number.isFinite(Number(point.lat)) || !Number.isFinite(Number(point.lng)) || Math.abs(point.lat)>90 || Math.abs(point.lng)>180)) {
+        toast.error('Place every stop on the map before saving the route.');
+        setSaving(false);
+        return;
+      }
+      const payload={ institute_id: recordInstitute, name: routeName, stops: stopsArr, etas: etasArr, stop_coordinates: stopCoordinates };
 
       if (isEditing) {
-        await axios.put(`http://localhost:5001/api/routes/${editingId}`,
-          { institute_id: recordInstitute, name: routeName, stops: stopsArr, etas: etasArr },
+        const response=await axios.put(`http://localhost:5001/api/routes/${editingId}`,
+          payload,
           { headers: { Authorization: `Bearer ${token}` } }
         );
+        if(response.data?.mappedStops!==stopsArr.length)throw new Error('The server did not save stop locations. Restart the backend and try again.');
         toast.success('Route updated successfully');
       } else {
-        await axios.post('http://localhost:5001/api/routes',
-          { institute_id: recordInstitute, name: routeName, stops: stopsArr, etas: etasArr },
+        const response=await axios.post('http://localhost:5001/api/routes',
+          payload,
           { headers: { Authorization: `Bearer ${token}` } }
         );
+        if(response.data?.mappedStops!==stopsArr.length)throw new Error('The server did not save stop locations. Restart the backend and try again.');
         toast.success('New route mapped successfully');
       }
 
       resetForm();
       fetchRoutes();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Error saving route');
+      toast.error(err.response?.data?.error || err.message || 'Error saving route');
     } finally {
       setSaving(false);
     }
@@ -91,9 +101,12 @@ const ManageRoutes = () => {
 
     const parsedStops = parseList(route.stops);
     const parsedEtas = parseList(route.etas);
+    let parsedCoordinates=[];
+    try { parsedCoordinates=JSON.parse(route.stop_coordinates||'[]'); } catch { parsedCoordinates=[]; }
 
     setStops(parsedStops.join(', '));
     setEtas(parsedEtas.join(', '));
+    setStopCoordinates(parsedCoordinates);
     setFormOpen(true);
   };
 
@@ -103,6 +116,7 @@ const ManageRoutes = () => {
     setRouteName('');
     setStops('');
     setEtas('');
+    setStopCoordinates([]);
     setRecordInstitute(user.role === 'superadmin' ? localStorage.getItem('instituteScope') || '' : String(user.institute_id));
     setFormOpen(false);
   };
@@ -147,7 +161,7 @@ const ManageRoutes = () => {
         <button type="button" className="primary-button" onClick={openAddDialog}><Plus size={18} /> Add route</button>
       </PageToolbar>
 
-      <Dialog open={formOpen} onClose={()=>!saving&&resetForm()} fullWidth maxWidth="sm" aria-labelledby="route-form-title">
+      <Dialog open={formOpen} onClose={()=>!saving&&resetForm()} fullWidth maxWidth="md" aria-labelledby="route-form-title">
         <DialogTitle id="route-form-title">{isEditing ? 'Edit route' : 'Add route'}</DialogTitle>
         <DialogContent>
           <form className="dialog-form" onSubmit={handleAddRoute}>
@@ -158,6 +172,7 @@ const ManageRoutes = () => {
               InputProps={{ startAdornment: <InputAdornment position="start"><MapPin size={18} /></InputAdornment> }} />
             <TextField label="ETAs (comma separated)" fullWidth value={etas} onChange={(e)=>setEtas(e.target.value)} required placeholder="5m, 10m, 15m"
               InputProps={{ startAdornment: <InputAdornment position="start"><Clock size={18} /></InputAdornment> }} />
+            <RouteStopPicker stops={stops.split(',').map(stop=>stop.trim()).filter(Boolean)} coordinates={stopCoordinates} onChange={setStopCoordinates}/>
             <Box className="form-actions">
               <Button variant="outlined" disabled={saving} onClick={resetForm}>Cancel</Button>
               <Button type="submit" variant="contained" disabled={saving}>{saving ? 'Saving...' : isEditing ? 'Save changes' : 'Add route'}</Button>
@@ -171,6 +186,8 @@ const ManageRoutes = () => {
         {routes.map((route, idx) => {
           const parsedStops = parseList(route.stops);
           const parsedEtas = parseList(route.etas);
+          let parsedCoordinates=[];
+          try { parsedCoordinates=JSON.parse(route.stop_coordinates||'[]'); } catch { parsedCoordinates=[]; }
 
           return (
             <Grid size={{ xs: 12, md: 6 }} key={route.id + '-' + (route.bus_id || 'none')}>
@@ -189,7 +206,7 @@ const ManageRoutes = () => {
                         <Box>
                           <Typography variant="h6" className="text-slate-900 font-bold leading-none">{route.name}</Typography><Typography variant="caption" className="block text-slate-500">{route.institute_name}</Typography>
                           <Typography variant="caption" className="text-slate-500 uppercase font-bold tracking-tighter">
-                            {parsedStops.length} Checkpoints
+                            {parsedCoordinates.length}/{parsedStops.length} stop locations mapped
                           </Typography>
                         </Box>
                       </Box>
@@ -234,6 +251,7 @@ const ManageRoutes = () => {
                             <Box key={i} className="flex items-center gap-4 relative pl-8">
                               <div className="absolute left-1 w-3 h-3 rounded-full border-2 border-purple-500 bg-white" />
                               <Typography variant="body2" className="text-slate-600 flex-1">{stop}</Typography>
+                              {parsedCoordinates[i]&&<Typography variant="caption" className="font-mono text-slate-500">{parsedCoordinates[i].lat}, {parsedCoordinates[i].lng}</Typography>}
                               <Box className="flex items-center gap-1 text-slate-500">
                                 <Clock size={12} />
                                 <Typography variant="caption" className="font-mono">{parsedEtas[i] || '--'}</Typography>

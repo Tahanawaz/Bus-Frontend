@@ -51,6 +51,8 @@ export default function StudentDashboard() {
     return()=>{active=false;socket.disconnect();};
   },[load]);
   useEffect(()=>{const timer=setInterval(()=>setTimers(previous=>Object.fromEntries(Object.entries(previous).map(([id,value])=>[id,Math.max(0,value-1)]))),1000);return()=>clearInterval(timer);},[]);
+  const selectedBus=buses.find(bus=>bus.id===selectedId);
+  const selectedRoute=routes.find(route=>route.id===selectedBus?.route_id)||routes.find(route=>route.name===selectedBus?.route);
   return <div className="tracking-page student-tracking">
     <header className="tracking-heading"><div><span className="eyebrow">{user?.institute_name||'YOUR CAMPUS'}</span><h1>Live bus tracking</h1><p>Choose your bus to see its route, stops, and last reported location.</p></div><span className={'connection-pill '+(connected?'connected':'')}><Radio size={15}/>{connected?'Connected':'Reconnecting...'}</span></header>
     {user?.access_end&&<div className="access-period-note">Your transport access: <strong>{user.access_start} to {user.access_end}</strong><span>Valid through the end date (UTC).</span></div>}
@@ -67,7 +69,7 @@ export default function StudentDashboard() {
           {selected&&<div className="bus-route-details"><h3>{route?.name||'Route not assigned'}</h3><StopTimeline stops={stops} etas={etas} activeIndex={stops.indexOf(bus.current_stop)}/></div>}
         </article>;
       })}</section>
-      <div className="tracking-map-column"><TrackingMap buses={buses} selectedId={selectedId} onSelect={setSelectedId}/></div>
+      <div className="tracking-map-column"><TrackingMap buses={buses} selectedId={selectedId} onSelect={setSelectedId} route={selectedRoute}/></div>
     </div>}
   </div>;
 }

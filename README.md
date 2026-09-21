@@ -18,7 +18,17 @@ npm run dev
 
 Open http://localhost:5173. The API runs on http://localhost:5001.
 For another API host, set VITE_API_URL in the frontend environment (restart Vite).
-Backend settings: PORT, DB_PATH, CLIENT_ORIGIN and optional JWT_SECRET.
+The backend uses PostgreSQL. Copy `Bus-Backend/.env.example` to `Bus-Backend/.env` and set the PostgreSQL credentials before starting it. Backend settings include PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD, DB_SSL, DB_POOL_MAX, PORT, CLIENT_ORIGIN and optional JWT_SECRET.
+
+To import the existing SQLite data once into an empty PostgreSQL database:
+
+~~~powershell
+cd "D:\Bus Track\Bus-Backend"
+npm run db:migrate
+npm run db:check
+~~~
+
+The original `database.sqlite` remains unchanged as a migration source/backup. The running API reads and writes PostgreSQL.
 
 The live map uses Google Maps. Put the browser-restricted key in `Bus-Frontend/.env.local`:
 
@@ -57,7 +67,7 @@ In **Student management**, add a student or review a student's self-registration
 - **Manage access**: activate with dates or suspend manually without recording a payment.
 - Dates use UTC. The end date is inclusive through 23:59:59 UTC; access is blocked starting the next day. Future periods allow access only from their start date.
 - Expiry is checked on every protected request and login. A 30-second maintenance job updates persisted status and disconnects expired live sessions. Manual suspension disconnects live sessions immediately.
-- Login displays the appropriate pending, admin-suspended, future-start or expired message.
+- Login displays the appropriate pending, admin-suspended, future-start or expired message. Student accounts are created by institute administrators; public signup is disabled.
 - Historical payments remain after deleting a student, with the student shown as deleted.
 
 Use institute, status and name/email filters, then **Clear filters** to reset them. Student PDF export follows the selected filters.
@@ -79,7 +89,7 @@ cd "D:\Bus Track\Bus-Frontend"
 npm run build
 ~~~
 
-Integration tests use temporary databases, not the running application's data. They cover institute permissions, driver ownership, pending registration, manual payment validation, expiry, suspension, socket isolation, PDF generation/pagination and repeatable legacy migration. Install frontend dependencies before backend tests because the socket test uses its Socket.IO client.
+Integration tests use temporary PostgreSQL schemas and never modify the public application schema. They cover institute permissions, driver ownership, pending admin-created accounts, manual payment validation, expiry, suspension, socket isolation, PDF generation/pagination and repeatable schema initialization. Install frontend dependencies before backend tests because the socket test uses its Socket.IO client.
 
 ## Account activation and institute administrators
 

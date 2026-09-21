@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { api } from '../../api';
 import TrackingMap from '../../components/TrackingMap';
 import StopTimeline from '../../components/StopTimeline';
-import { coordinates, parseList, formatSeconds } from '../../transportUtils';
+import { coordinates, parseList, formatSeconds, routeStopPoints } from '../../transportUtils';
 export default function DriverDashboard() {
   const [bus,setBus]=useState(null);
   const [route,setRoute]=useState(null);
@@ -46,22 +46,35 @@ export default function DriverDashboard() {
   };
   const startSharing=()=>{
     if(!navigator.geolocation){toast.error('This browser does not support location sharing.');return;}
+    if(!window.isSecureContext){toast.error('Mobile GPS requires an HTTPS address. Open the app through a secure tunnel, then try again.');return;}
     stopSharing();setSharing('gps');
-    watch.current=navigator.geolocation.watchPosition(position=>sendPosition([position.coords.latitude,position.coords.longitude]),()=>{stopSharing();toast.error('Location unavailable. Allow location access and try again.');},{enableHighAccuracy:true,timeout:15000});
+    watch.current=navigator.geolocation.watchPosition(position=>sendPosition([position.coords.latitude,position.coords.longitude]),()=>{stopSharing();toast.error('Location unavailable. Allow location access and try again.');},{enableHighAccuracy:true,timeout:15000,maximumAge:0});
   };
   const simulate=()=>{
     stopSharing();setSharing('demo');
-    const base=coordinates(bus)||[31.5204,74.3587];let step=0;
-    simulation.current=setInterval(()=>{step++;sendPosition([base[0]+step*.0005,base[1]+step*.0008]);if(step>=30)stopSharing();},2000);
+    const routePoints=routeStopPoints(route).map(point=>[point.lat,point.lng]);
+    if(!routePoints.length){setSharing('');toast.error('Add stop locations to this route before running simulation.');return;}
+    const path=[coordinates(bus),...routePoints.slice(stopIndex)].filter(Boolean);let segment=0,step=0;
+    if(path.length===1){sendPosition(path[0]);stopSharing();return;}
+    simulation.current=setInterval(()=>{
+      step++;const start=path[segment],end=path[segment+1],progress=step/10;
+      sendPosition([start[0]+(end[0]-start[0])*progress,start[1]+(end[1]-start[1])*progress]);
+      if(step>=10){segment++;step=0;if(segment>=path.length-1)stopSharing();}
+    },1000);
   };
   const stops=parseList(route?.stops),etas=parseList(route?.etas);
+  const stopPoints=routeStopPoints(route);
+  const routeMapped=stops.length>0&&stopPoints.length===stops.length;
   const arrive=async()=>{
     if(!stops[stopIndex])return;
     setBusy(true);
     try{
       const stop=stops[stopIndex],status='Arrived at '+stop;
-      await api.put('/buses/'+bus.id+'/stop',{stopName:stop});await api.put('/buses/'+bus.id+'/status',{status});
-      setBus(previous=>({...previous,current_stop:stop,status}));setAtStop(true);setRemaining(180);
+      const response=await api.put('/buses/'+bus.id+'/stop',{stopName:stop}),point=response.data.location||stopPoints.find(item=>item.index===stopIndex);
+      await api.put('/buses/'+bus.id+'/status',{status});
+      setBus(previous=>({...previous,current_stop:stop,status,...(point?{lat:point.lat,lng:point.lng}:{})}));
+      if(point)setHistory(previous=>[...previous,[point.lat,point.lng]].slice(-200));
+      setAtStop(true);setRemaining(180);
     }catch(err){toast.error(err.response?.data?.error||'Unable to mark arrival.');}finally{setBusy(false);}
   };
   const proceed=async()=>{
@@ -87,12 +100,13 @@ export default function DriverDashboard() {
   return <div className="tracking-page driver-tracking">
     <header className="tracking-heading"><div><span className="eyebrow">{user?.institute_name||'DRIVER WORKSPACE'}</span><h1>My journey</h1><p>{bus.name} / {bus.number_plate}</p></div><div className="tracking-actions"><button className="secondary-button" disabled={!!sharing||complete} onClick={simulate}>Simulate route</button>{sharing?<button className="primary-button" onClick={stopSharing}>Stop sharing</button>:<button className="primary-button" disabled={complete} onClick={startSharing}><Radio size={16}/>Share location</button>}</div></header>
     {error&&<div className="error-notice" role="alert">{error}</div>}
+    {!routeMapped&&<div className="error-notice" role="status">This route has {stopPoints.length} of {stops.length} stop locations mapped. Live mobile GPS sharing still works; mapping is only required for the route line, stop markers, simulation, and Mark arrival.</div>}
     <div className="journey-status"><span className={'connection-pill '+(sharing?'connected':'')}><Radio size={15}/>{sharing==='demo'?'Simulation running':sharing?'Sharing GPS location':'Location sharing off'}</span><span>{bus.status}</span></div>
     {complete&&<section className="journey-complete"><Flag size={30}/><div><h2>Journey complete</h2><p>You have reached the final stop. Start a new trip when ready.</p></div><button className="primary-button" disabled={busy} onClick={reset}>Start new journey</button></section>}
     <div className="tracking-layout"><section className="driver-route-panel"><header><span className="eyebrow">{atStop?'AT CURRENT STOP':'NEXT STOP'}</span><h2>{complete?'Trip completed':stops[stopIndex]||'Route not assigned'}</h2><p>{route?.name||'Ask your institute admin to assign a route with stops.'}</p></header><StopTimeline stops={stops} etas={etas} activeIndex={complete?stops.length:stopIndex}/>
       <div className="driver-route-actions">{atStop&&<div className="stop-countdown">Stop wait<strong>{formatSeconds(remaining)}</strong></div>}
-      <button className="primary-button" disabled={busy||!stops.length||complete} onClick={atStop?proceed:arrive}><Navigation size={16}/>{atStop?(stopIndex===stops.length-1?'Finish journey':'Proceed to next stop'):'Mark arrival'}</button>
+      <button className="primary-button" disabled={busy||!routeMapped||complete} onClick={atStop?proceed:arrive}><Navigation size={16}/>{atStop?(stopIndex===stops.length-1?'Finish journey':'Proceed to next stop'):'Mark arrival'}</button>
       <button className="secondary-button" disabled={busy||complete} onClick={reportDelay}><AlertTriangle size={16}/>Report traffic delay</button></div>
-    </section><div className="tracking-map-column"><TrackingMap buses={[{...bus,history}]} selectedId={bus.id}/></div></div>
+    </section><div className="tracking-map-column"><TrackingMap buses={[{...bus,history}]} selectedId={bus.id} route={route}/></div></div>
   </div>;
 }

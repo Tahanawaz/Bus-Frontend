@@ -7,6 +7,17 @@ export function coordinates(bus) {
   const lat=Number(bus.lat),lng=Number(bus.lng);
   return Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180?[lat,lng]:null;
 }
+export function routeStopPoints(route) {
+  const stops=parseList(route?.stops),etas=parseList(route?.etas);
+  let points=[];
+  try { const parsed=typeof route?.stop_coordinates==='string'?JSON.parse(route.stop_coordinates):route?.stop_coordinates;points=Array.isArray(parsed)?parsed:[]; }
+  catch { points=[]; }
+  return stops.map((name,index)=>{
+    const point=points[index];
+    const lat=Number(Array.isArray(point)?point[0]:point?.lat),lng=Number(Array.isArray(point)?point[1]:point?.lng);
+    return Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180?{name,eta:etas[index],lat,lng,index}:null;
+  }).filter(Boolean);
+}
 export const formatSeconds = value => Math.floor(value/60)+':'+String(value%60).padStart(2,'0');
 export function normalizeTime(value) {
   const text=String(value||'').trim();

@@ -16,7 +16,6 @@ import Landing from './pages/Landing';
 
 // Auth Pages
 import Login from './pages/auth/Login';
-import Signup from './pages/auth/Signup';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -51,7 +50,6 @@ function SharedApp({ mode }) {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
           
           <Route path="/student" element={<PrivateRoute roleRequired="student"><DashboardLayout role="student" /></PrivateRoute>}>
             <Route index element={<StudentDashboard />} />
