@@ -12,7 +12,8 @@ const requestInterceptor = axios.interceptors.request.use(config => {
   const excluded = detail || /\/api\/(institutes|auth\/(login|change-initial-password|me|admins))/.test(config.url);
   if (user?.role === 'superadmin' && institute && !excluded) {
     config.params = { institute_id: config.data?.institute_id || institute, ...config.params };
-    if (config.data && typeof config.data === 'object' && !config.data.institute_id) config.data = { ...config.data, institute_id: institute };
+    const plainBody = config.data && Object.getPrototypeOf(config.data) === Object.prototype;
+    if (plainBody && !config.data.institute_id) config.data = { ...config.data, institute_id: institute };
   }
   return config;
 });
@@ -32,7 +33,7 @@ if (import.meta.hot) import.meta.hot.dispose(() => {
 });
 export const api = {
   get: (path, config) => axios.get(API_URL + '/api' + path, config),
-  post: (path, body) => axios.post(API_URL + '/api' + path, body),
+  post: (path, body, config) => axios.post(API_URL + '/api' + path, body, config),
   put: (path, body, config) => axios.put(API_URL + '/api' + path, body, config),
   delete: path => axios.delete(API_URL + '/api' + path),
 };

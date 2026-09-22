@@ -49,7 +49,7 @@ export default function AuthPage() {
       <div className="auth-benefits"><span><Radio size={17} /> Live tracking</span><span><Route size={17} /> Route schedules</span><span><ShieldCheck size={17} /> Secure access</span></div>
     </section>
     <section className="auth-form-panel">
-      <div className="auth-panel-top"><Link to="/" className="back-link"><ArrowLeft size={16} /> Back to home</Link><div className="auth-mobile-brand"><Brand /></div></div>
+      <div className="auth-panel-top"><Link to="/" className="back-link"><ArrowLeft size={16} /><span className="back-full">Back to home</span><span className="back-short">Back</span></Link><div className="auth-mobile-brand"><Brand /></div></div>
       <div className="auth-form-card">
         <span className="auth-card-icon">{challenge?<LockKeyhole size={21}/>:<ShieldCheck size={21}/>}</span>
         <span className="eyebrow">{challenge ? 'SECURE YOUR ACCOUNT' : 'SECURE ACCOUNT ACCESS'}</span><h2>{challenge ? 'Choose a new password' : 'Sign in to SmartBus'}</h2><p>{challenge?'Replace your temporary password before entering your workspace.':'Enter your account details to continue to your workspace.'}</p>

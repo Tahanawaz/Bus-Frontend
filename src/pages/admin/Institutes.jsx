@@ -1,5 +1,6 @@
 import PasswordField from '../../components/PasswordField';
-import { Dialog, DialogTitle, DialogContent } from '@mui/material';
+import DialogHeader from '../../components/DialogHeader';
+import { Dialog, DialogContent } from '@mui/material';
 import DownloadPdfButton from '../../components/DownloadPdfButton';
 import { useEffect, useState, useCallback } from 'react';
 import { Building2, Plus, Pencil, Trash2 } from 'lucide-react';
@@ -50,7 +51,7 @@ export default function Institutes() {
     <section className="management-panel"><div className="management-heading"><h2>All registered institutes</h2><DownloadPdfButton type="institutes" params={{ institute_id: 'all' }} /></div><div className="institute-cards" role="region" aria-label="Registered institutes" tabIndex={0}>{institutes.map(i=><article key={i.id}><div className="institute-card-head"><Building2 size={22}/><div className="institute-card-actions"><button disabled={saving} className="icon-button" aria-label={'Edit '+i.name} onClick={()=>{setEditing(i.id);setInstitute({name:i.name,address:i.address});setInstituteOpen(true);}}><Pencil size={17}/></button><button type="button" disabled={saving} className="icon-button delete-action" aria-label={'Delete '+i.name} onClick={()=>removeInstitute(i)}><Trash2 size={17}/></button></div></div><h3>{i.name}</h3><p>{i.address||'Address not added'}</p><span>{admins.find(a=>a.institute_id===i.id)?.name || 'No admin assigned'}</span><button type="button" className="secondary-button institute-admin-action" disabled={saving} onClick={()=>{const current=admins.find(a=>a.institute_id===i.id);setReplacing(!!current);setAdminEditing(current?.id||null);setAdmin({name:'',email:'',password:'',institute_id:i.id});setAdminOpen(true);}}>{admins.some(a=>a.institute_id===i.id)?'Change admin':'Assign admin'}</button></article>)}</div></section>
     <section className="management-panel"><div className="management-heading"><h2>Institute administrators</h2><DownloadPdfButton type="admins" params={{ institute_id: 'all' }} /></div><div className="management-table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Institute</th><th>Actions</th></tr></thead><tbody>{admins.map(a=><tr key={a.id}><td>{a.name}</td><td>{a.email}</td><td>{a.institute_name}</td><td><div className="row-actions"><button disabled={saving} aria-label={'Edit '+a.name} onClick={()=>{setReplacing(false);setAdminEditing(a.id);setAdmin({name:a.name,email:a.email,password:'',institute_id:a.institute_id});setAdminOpen(true);}}><Pencil size={16}/></button><button disabled={saving} aria-label={'Remove '+a.name} onClick={()=>removeAdmin(a)}><Trash2 size={16}/></button></div></td></tr>)}</tbody></table>{!admins.length&&<p className="empty-state">Create an administrator for an institute to get started.</p>}</div></section>
     <Dialog open={instituteOpen} onClose={()=>!saving&&setInstituteOpen(false)} fullWidth maxWidth="sm" aria-labelledby="institute-dialog-title">
-      <DialogTitle id="institute-dialog-title">{editing?'Edit institute':'Add institute'}</DialogTitle>
+      <DialogHeader id="institute-dialog-title" disabled={saving} onClose={()=>setInstituteOpen(false)}>{editing?'Edit institute':'Add institute'}</DialogHeader>
       <DialogContent><form className="management-form dialog-form" onSubmit={saveInstitute}>
         <label>Institute name<input autoFocus required maxLength={160} value={institute.name} onChange={e=>setInstitute({...institute,name:e.target.value})}/></label>
         <label>Address<input maxLength={300} value={institute.address} onChange={e=>setInstitute({...institute,address:e.target.value})}/></label>
@@ -58,7 +59,7 @@ export default function Institutes() {
       </form></DialogContent>
     </Dialog>
     <Dialog open={adminOpen} onClose={()=>!saving&&setAdminOpen(false)} fullWidth maxWidth="sm" aria-labelledby="admin-dialog-title">
-      <DialogTitle id="admin-dialog-title">{replacing?'Change institute admin':adminEditing?'Edit admin':'Add admin'}</DialogTitle>
+      <DialogHeader id="admin-dialog-title" disabled={saving} onClose={()=>setAdminOpen(false)}>{replacing?'Change institute admin':adminEditing?'Edit admin':'Add admin'}</DialogHeader>
       <DialogContent><form className="management-form dialog-form" onSubmit={saveAdmin}>
         {!institutes.length&&<p className="form-note">Add an institute first, then assign an admin to it.</p>}
         <label>Institute<select autoFocus required disabled={!!adminEditing} value={admin.institute_id} onChange={e=>setAdmin({...admin,institute_id:e.target.value})}><option value="">Select institute</option>{institutes.filter(i=>adminEditing || !admins.some(a=>a.institute_id===i.id)).map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</select></label>

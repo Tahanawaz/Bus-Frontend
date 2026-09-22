@@ -2,13 +2,14 @@ import InstituteField from '../../components/InstituteField';
 import PasswordField from '../../components/PasswordField';
 import PageToolbar from '../../components/PageToolbar';
 import DownloadPdfButton from '../../components/DownloadPdfButton';
+import DialogHeader from '../../components/DialogHeader';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box, Typography, Button, TextField, Grid, Card, CardContent,
   InputAdornment, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Avatar, IconButton, Chip, CircularProgress,
-  Dialog, DialogTitle, DialogContent
+  Dialog, DialogContent
 } from '@mui/material';
 import { UserPlus, Mail, User, Trash2, Shield, Search, Pencil } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -146,7 +147,7 @@ const ManageDrivers = () => {
       </PageToolbar>
 
       <Dialog open={formOpen} onClose={()=>!loading&&resetForm()} fullWidth maxWidth="md" aria-labelledby="driver-form-title">
-        <DialogTitle id="driver-form-title">{isEditing ? 'Edit driver' : 'Add driver'}</DialogTitle>
+        <DialogHeader id="driver-form-title" disabled={loading} onClose={resetForm}>{isEditing ? 'Edit driver' : 'Add driver'}</DialogHeader>
         <DialogContent>
           <form className="dialog-form" onSubmit={handleRegisterDriver}>
             <InstituteField value={recordInstitute} disabled={isEditing} onChange={setRecordInstitute}/>

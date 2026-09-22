@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
-import { Map, Bus, Users, Route, LayoutDashboard, Menu, LogOut, X, ArrowUpRight, GraduationCap, Building2, UserRound } from 'lucide-react';
+import { Map, Bus, Users, Route, LayoutDashboard, Menu, LogOut, X, ArrowUpRight, GraduationCap, Building2, UserRound, FileText } from 'lucide-react';
 import Brand from '../components/Brand';
 import ProfileAvatar from '../components/ProfileAvatar';
 const menus = {
@@ -15,7 +15,7 @@ export default function DashboardLayout({ role }) {
   const { pathname } = useLocation();
   const [user,setUser]=useState(()=>JSON.parse(localStorage.getItem('user')||'null'));
   useEffect(()=>{const refresh=()=>setUser(JSON.parse(localStorage.getItem('user')||'null'));window.addEventListener('smartbus-user-updated',refresh);return()=>window.removeEventListener('smartbus-user-updated',refresh);},[]);
-  const items = [...menus[role], ...(user?.role === 'superadmin' ? [['Institutes & admins', Building2, '/admin/institutes']] : []), ['My profile', UserRound, `/${role}/profile`]];
+  const items = [...menus[role], ...(user?.role === 'superadmin' ? [['Institutes & admins', Building2, '/admin/institutes'], ['Policies', FileText, '/admin/policies']] : []), ['My profile', UserRound, `/${role}/profile`]];
   const changeScope = value => { localStorage.setItem('instituteScope', value); setScope(value); };
   const logout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); localStorage.removeItem('instituteScope'); navigate('/login'); };
   return <div className="dashboard-shell">

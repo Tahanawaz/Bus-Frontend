@@ -2,13 +2,14 @@ import InstituteField from '../../components/InstituteField';
 import PageToolbar from '../../components/PageToolbar';
 import DownloadPdfButton from '../../components/DownloadPdfButton';
 import DepartureTimePicker from '../../components/DepartureTimePicker';
+import DialogHeader from '../../components/DialogHeader';
 import { formatTime, normalizeTime } from '../../transportUtils';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box, Typography, Button, TextField, Grid, Card, CardContent,
   IconButton, Chip, Select, MenuItem, FormControl, InputLabel,
-  CircularProgress, Avatar, Dialog, DialogTitle, DialogContent
+  CircularProgress, Avatar, Dialog, DialogContent
 } from '@mui/material';
 import { Trash2, Plus, Bus, User, AlertCircle, Navigation, Pencil, Clock } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -247,7 +248,7 @@ const ManageBuses = () => {
       </PageToolbar>
 
       <Dialog open={formOpen} onClose={()=>!saving&&resetForm()} fullWidth maxWidth="md" aria-labelledby="bus-form-title">
-        <DialogTitle id="bus-form-title">{isEditing ? 'Edit bus' : 'Add bus'}</DialogTitle>
+        <DialogHeader id="bus-form-title" disabled={saving} onClose={resetForm}>{isEditing ? 'Edit bus' : 'Add bus'}</DialogHeader>
         <DialogContent><div className="dialog-form">{formOpen && busForm}</div></DialogContent>
       </Dialog>
 

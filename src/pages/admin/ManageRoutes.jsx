@@ -2,11 +2,12 @@ import InstituteField from '../../components/InstituteField';
 import PageToolbar from '../../components/PageToolbar';
 import DownloadPdfButton from '../../components/DownloadPdfButton';
 import RouteStopPicker from '../../components/RouteStopPicker';
+import DialogHeader from '../../components/DialogHeader';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box, Typography, Button, TextField, Grid, Card, CardContent,
-  IconButton, Chip, InputAdornment, Dialog, DialogTitle, DialogContent, CircularProgress
+  IconButton, Chip, InputAdornment, Dialog, DialogContent, CircularProgress
 } from '@mui/material';
 import { Plus, Trash2, MapPin, Clock, Bus, Navigation, ListOrdered, Pencil } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -162,7 +163,7 @@ const ManageRoutes = () => {
       </PageToolbar>
 
       <Dialog open={formOpen} onClose={()=>!saving&&resetForm()} fullWidth maxWidth="md" aria-labelledby="route-form-title">
-        <DialogTitle id="route-form-title">{isEditing ? 'Edit route' : 'Add route'}</DialogTitle>
+        <DialogHeader id="route-form-title" disabled={saving} onClose={resetForm}>{isEditing ? 'Edit route' : 'Add route'}</DialogHeader>
         <DialogContent>
           <form className="dialog-form" onSubmit={handleAddRoute}>
             <InstituteField value={recordInstitute} disabled={isEditing} onChange={setRecordInstitute}/>
