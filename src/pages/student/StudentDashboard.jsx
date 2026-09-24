@@ -30,7 +30,6 @@ export default function StudentDashboard() {
   useEffect(()=>{
     let active=true;
     // Load the initial server snapshot before subscribing to live updates.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     const socket=connectSocket();
     const notify=message=>setNotices(previous=>[{id:crypto.randomUUID(),message},...previous].slice(0,3));

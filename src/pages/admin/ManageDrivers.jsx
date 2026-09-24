@@ -3,7 +3,7 @@ import PasswordField from '../../components/PasswordField';
 import PageToolbar from '../../components/PageToolbar';
 import DownloadPdfButton from '../../components/DownloadPdfButton';
 import DialogHeader from '../../components/DialogHeader';
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box, Typography, Button, TextField, Grid, Card, CardContent,
@@ -32,23 +32,22 @@ const ManageDrivers = () => {
   const [recordInstitute, setRecordInstitute] = useState(user.role === 'superadmin' ? localStorage.getItem('instituteScope') || '' : String(user.institute_id));
   const token = localStorage.getItem('token');
 
-  const fetchDrivers = async () => {
+  const fetchDrivers = useCallback(async () => {
     try {
       const res = await axios.get('http://localhost:5001/api/auth/drivers', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDrivers(res.data);
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error('Failed to load drivers list');
     } finally {
       setFetching(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     fetchDrivers();
-  }, []);
+  }, [fetchDrivers]);
 
   const handleRegisterDriver = async (e) => {
     e.preventDefault();

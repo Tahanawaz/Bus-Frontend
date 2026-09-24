@@ -40,7 +40,7 @@ export default function RouteStopPicker({stops,coordinates,onChange}) {
     const point=coordinates[index],lat=Number(point?.lat),lng=Number(point?.lng);
     return Number.isFinite(lat)&&Number.isFinite(lng)?{lat,lng,index}:null;
   }).filter(Boolean),[stops,coordinates]);
-  useEffect(()=>{if(activeIndex>=stops.length)setActiveIndex(Math.max(0,stops.length-1));},[activeIndex,stops.length]);
+  const selectedIndex=Math.min(activeIndex,Math.max(0,stops.length-1));
 
   const setPoint=(index,lat,lng,shouldFocus=false)=>{
     const next=Array.from({length:stops.length},(_,itemIndex)=>coordinates[itemIndex]||null);
@@ -51,7 +51,7 @@ export default function RouteStopPicker({stops,coordinates,onChange}) {
     if(following!==-1)setActiveIndex(following);
   };
   const useCurrentLocation=()=>navigator.geolocation?.getCurrentPosition(
-    position=>setPoint(activeIndex,position.coords.latitude,position.coords.longitude,true),
+    position=>setPoint(selectedIndex,position.coords.latitude,position.coords.longitude,true),
     ()=>setSearchError('Current location unavailable. Allow browser location access and try again.'),
     {enableHighAccuracy:true,timeout:10000}
   );
@@ -74,7 +74,7 @@ export default function RouteStopPicker({stops,coordinates,onChange}) {
     finally { setSearching(false); }
   };
   const chooseResult=result=>{
-    setPoint(activeIndex,result.lat,result.lng,true);setQuery(result.name);setResults([]);setSearchError('');
+    setPoint(selectedIndex,result.lat,result.lng,true);setQuery(result.name);setResults([]);setSearchError('');
   };
 
   return <section className="route-stop-picker">
@@ -86,7 +86,7 @@ export default function RouteStopPicker({stops,coordinates,onChange}) {
         <label htmlFor="route-place-query">Search stop or place</label>
         <div><Search size={17}/><input id="route-place-query" value={query} onChange={event=>setQuery(event.target.value)}
           onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();event.stopPropagation();searchPlaces();}}}
-          placeholder={`Search for ${stops[activeIndex]||'a stop'}, city`}/>
+          placeholder={`Search for ${stops[selectedIndex]||'a stop'}, city`}/>
           <button type="button" className="primary-button" disabled={searching} onClick={searchPlaces}>{searching?<LoaderCircle className="spin" size={16}/>:<Search size={16}/>}Search</button>
         </div>
         {searchError&&<p role="alert">{searchError}</p>}
@@ -95,13 +95,13 @@ export default function RouteStopPicker({stops,coordinates,onChange}) {
         </button>)}</div>}
       </div>
       <div className="route-picker-stops" role="list" aria-label="Route stops">
-        {stops.map((stop,index)=><button type="button" role="listitem" key={index} className={(activeIndex===index?'active ':'')+(coordinates[index]?'placed':'')} onClick={()=>setActiveIndex(index)}>
+        {stops.map((stop,index)=><button type="button" role="listitem" key={index} className={(selectedIndex===index?'active ':'')+(coordinates[index]?'placed':'')} onClick={()=>setActiveIndex(index)}>
           <span>{index+1}</span><strong>{stop}</strong><small>{coordinates[index]?`${coordinates[index].lat}, ${coordinates[index].lng}`:'Click map to place'}</small>
         </button>)}
       </div>
       <div className="route-picker-map">
         <MapContainer center={center} zoom={12}>
-          <FitPoints points={points} focus={focus}/><MapClick onPick={(lat,lng)=>setPoint(activeIndex,lat,lng)}/>
+          <FitPoints points={points} focus={focus}/><MapClick onPick={(lat,lng)=>setPoint(selectedIndex,lat,lng)}/>
           <TileLayer url={tileUrl} attribution="&copy; OpenStreetMap contributors &copy; CARTO"/>
           {points.length>1&&<Polyline positions={points.map(point=>[point.lat,point.lng])} color="#7c3aed" weight={4}/>}
           {points.map(point=><Marker key={point.index} position={[point.lat,point.lng]} icon={markerIcon(point.index)} draggable

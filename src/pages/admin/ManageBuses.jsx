@@ -4,7 +4,7 @@ import DownloadPdfButton from '../../components/DownloadPdfButton';
 import DepartureTimePicker from '../../components/DepartureTimePicker';
 import DialogHeader from '../../components/DialogHeader';
 import { formatTime, normalizeTime } from '../../transportUtils';
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box, Typography, Button, TextField, Grid, Card, CardContent,
@@ -34,7 +34,7 @@ const ManageBuses = () => {
   const [recordInstitute, setRecordInstitute] = useState(user.role === 'superadmin' ? localStorage.getItem('instituteScope') || '' : String(user.institute_id));
   const token = localStorage.getItem('token');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [busRes, driverRes, routeRes] = await Promise.all([
         axios.get('http://localhost:5001/api/buses', { headers: { Authorization: `Bearer ${token}` } }),
@@ -46,17 +46,16 @@ const ManageBuses = () => {
       setDrivers(driverRes.data);
       setRoutes([...new Map(routeRes.data.map(route => [route.id, route])).values()]);
     } catch (err) {
-      console.error('Fetch Error:', err.response || err);
       const errorMsg = err.response?.data?.error || err.message || 'Unknown error';
       toast.error(`Failed to load data: ${errorMsg}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, user.role]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const handleAddBus = async (e, force = false) => {
     if (e) e.preventDefault();

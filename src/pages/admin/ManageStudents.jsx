@@ -41,7 +41,6 @@ export default function ManageStudents() {
     finally {if(version===loadVersion.current)setLoading(false);}
   },[institute]);
   // Fetch initial server data; state updates happen after the asynchronous request.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(()=>{load();return()=>{loadVersion.current=null;};},[load]);
   const filtered=students.filter(s=>(!status||s.status===status)&&(s.name+' '+s.email).toLowerCase().includes(search.toLowerCase()));
   const change=e=>setForm({...form,[e.target.name]:e.target.value});

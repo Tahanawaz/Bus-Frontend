@@ -3,7 +3,7 @@ import PageToolbar from '../../components/PageToolbar';
 import DownloadPdfButton from '../../components/DownloadPdfButton';
 import RouteStopPicker from '../../components/RouteStopPicker';
 import DialogHeader from '../../components/DialogHeader';
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box, Typography, Button, TextField, Grid, Card, CardContent,
@@ -38,23 +38,22 @@ const ManageRoutes = () => {
   const [recordInstitute, setRecordInstitute] = useState(user.role === 'superadmin' ? localStorage.getItem('instituteScope') || '' : String(user.institute_id));
   const token = localStorage.getItem('token');
 
-  const fetchRoutes = async () => {
+  const fetchRoutes = useCallback(async () => {
     try {
       const res = await axios.get('http://localhost:5001/api/routes', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setRoutes(res.data);
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error('Failed to load routes');
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     fetchRoutes();
-  }, []);
+  }, [fetchRoutes]);
 
   const handleAddRoute = async (e) => {
     e.preventDefault();
@@ -102,7 +101,7 @@ const ManageRoutes = () => {
 
     const parsedStops = parseList(route.stops);
     const parsedEtas = parseList(route.etas);
-    let parsedCoordinates=[];
+    let parsedCoordinates;
     try { parsedCoordinates=JSON.parse(route.stop_coordinates||'[]'); } catch { parsedCoordinates=[]; }
 
     setStops(parsedStops.join(', '));

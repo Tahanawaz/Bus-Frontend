@@ -25,6 +25,7 @@ import ManageStudents from './pages/admin/ManageStudents';
 import ManageRoutes from './pages/admin/ManageRoutes';
 import AdminMap from './pages/admin/AdminMap';
 import Policies from './pages/admin/Policies';
+import ContactInquiries from './pages/admin/ContactInquiries';
 
 // Student Pages
 import StudentDashboard from './pages/student/StudentDashboard';
@@ -68,6 +69,7 @@ function SharedApp({ mode }) {
             <Route path="reports" element={<Navigate to="/admin" replace />} />
             <Route path="institutes" element={<PrivateRoute roleRequired="superadmin"><Institutes /></PrivateRoute>} />
             <Route path="policies" element={<PrivateRoute roleRequired="superadmin"><Policies /></PrivateRoute>} />
+            <Route path="contacts" element={<PrivateRoute roleRequired="superadmin"><ContactInquiries /></PrivateRoute>} />
             <Route path="profile" element={<Profile />} />
           </Route>
           

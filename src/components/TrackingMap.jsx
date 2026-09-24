@@ -99,7 +99,7 @@ function GoogleTrackingMap({ apiKey, buses, selectedId, onSelect, selected, posi
     visibleBuses.forEach(item => bounds.extend(item.position));
     routeStops.forEach(stop=>bounds.extend({lat:stop.lat,lng:stop.lng}));
     map.fitBounds(bounds);
-  }, [map, fitAll, visibleBuses, routeStops]);
+  }, [map, fitAll, position, visibleBuses, routeStops]);
 
   if (!apiKey) return <div className="map-load-state" role="alert">Google Maps API key is not configured.</div>;
   if (loadError) return <div className="map-load-state" role="alert">Google Maps could not load. Check billing, key restrictions and Maps JavaScript API.</div>;

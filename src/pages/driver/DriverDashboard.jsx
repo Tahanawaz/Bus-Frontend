@@ -31,7 +31,6 @@ export default function DriverDashboard() {
     finally{setLoading(false);}
   },[]);
   // Fetch initial server data; state updates happen after the asynchronous request.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(()=>{load();},[load]);
   useEffect(()=>()=>{if(watch.current!==null)navigator.geolocation.clearWatch(watch.current);if(simulation.current!==null)clearInterval(simulation.current);},[]);
   useEffect(()=>{if(!atStop)return;const timer=setInterval(()=>setRemaining(value=>Math.max(0,value-1)),1000);return()=>clearInterval(timer);},[atStop]);
