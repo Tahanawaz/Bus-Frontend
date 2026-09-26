@@ -19,7 +19,7 @@ export default function DashboardLayout({ role }) {
   const { pathname } = useLocation();
   const [user,setUser]=useState(()=>JSON.parse(localStorage.getItem('user')||'null'));
   useEffect(()=>{const refresh=()=>setUser(JSON.parse(localStorage.getItem('user')||'null'));window.addEventListener('smartbus-user-updated',refresh);return()=>window.removeEventListener('smartbus-user-updated',refresh);},[]);
-  const items = [...menus[role], ...(user?.role === 'superadmin' ? [['Institutes & admins', Building2, '/admin/institutes'], ['Contact inquiries', MessageSquare, '/admin/contacts'], ['Policies & social', FileText, '/admin/policies']] : []), ['My profile', UserRound, `/${role}/profile`]];
+  const items = [...menus[role], ...(user?.role === 'superadmin' ? [['Institutes & admins', Building2, '/admin/institutes'], ['Demo requests', MessageSquare, '/admin/contacts'], ['Policies & social', FileText, '/admin/policies']] : []), ['My profile', UserRound, `/${role}/profile`]];
   const changeScope = value => { localStorage.setItem('instituteScope', value); setScope(value); };
   const logout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); localStorage.removeItem('instituteScope'); setLogoutOpen(false); navigate('/login'); };
   return <div className="dashboard-shell">

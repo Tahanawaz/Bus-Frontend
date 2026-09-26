@@ -129,13 +129,20 @@ export default function TrackingMap({ buses, selectedId, onSelect, fitAll=false,
   const selected = buses.find(bus => bus.id === selectedId);
   const position = toPoint(selected);
   const routeStops=useMemo(()=>routeStopPoints(route),[route]);
+  const mapDescription=selected
+    ? route
+      ? `${routeStops.length} mapped route ${routeStops.length===1?'stop':'stops'} shown${position?' with the live bus location':'; waiting for the bus GPS location'}.`
+      : `${position?'Live bus location shown. ':''}No route is assigned to this bus, so there are no route stops to display.`
+    : fitAll
+      ? `${buses.filter(bus=>coordinates(bus)).length} of ${buses.length} buses are reporting a location.`
+      : 'Select a bus from the list below or beside the map.';
   const mapBody = provider === 'google'
     ? <GoogleTrackingMap apiKey={apiKey} buses={buses} selectedId={selectedId} onSelect={onSelect} selected={selected} position={position} theme={theme} fitAll={fitAll} routeStops={routeStops}/>
     : <OpenStreetMap buses={buses} onSelect={onSelect} selected={selected} position={position} theme={theme} fitAll={fitAll} routeStops={routeStops}/>;
 
   return <section className="tracking-map-panel">
-    <header><span className="mini-icon"><MapPin size={19}/></span><div><span className="eyebrow">LIVE MAP</span><h2>{title || selected?.name || 'Choose a bus to follow'}</h2><p>{fitAll ? `${buses.filter(bus=>coordinates(bus)).length} of ${buses.length} buses are reporting a location.` : selected ? (position ? 'Live location reported by the driver GPS' : 'Waiting for location from the driver') : 'Select a bus from the list below or beside the map.'}</p></div></header>
+    <header><span className="mini-icon"><MapPin size={19}/></span><div><span className="eyebrow">LIVE MAP</span><h2>{title || selected?.name || 'Choose a bus to follow'}</h2><p>{mapDescription}</p></div></header>
     <div className="tracking-map-canvas">{mapBody}</div>
-    <footer>{position ? <a className="secondary-button" href={'https://www.google.com/maps/search/?api=1&query=' + position.lat + ',' + position.lng} target="_blank" rel="noopener noreferrer"><Navigation size={17}/>Open in Google Maps</a> : <p>No location available for the selected bus yet.</p>}</footer>
+    <footer>{position ? <a className="secondary-button" href={'https://www.google.com/maps/search/?api=1&query=' + position.lat + ',' + position.lng} target="_blank" rel="noopener noreferrer"><Navigation size={17}/>Open in Google Maps</a> : <p>{selected?'No live location is available for this bus yet.':fitAll?'Select a bus card to view all mapped stops on its route.':'No bus selected.'}</p>}</footer>
   </section>;
 }
